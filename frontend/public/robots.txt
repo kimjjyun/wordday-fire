@@ -6,4 +6,4 @@ Disallow: /teacher
 Disallow: /student
 Disallow: /reset-password
 
-Sitemap: https://wordday-fire.web.app/sitemap.xml
+Sitemap: https://wordday.web.app/sitemap.xml
