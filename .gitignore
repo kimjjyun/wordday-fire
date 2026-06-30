@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Firebase local configuration and secrets
+.firebaserc
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Environment variables
+.env
+frontend/.env
+
+# Build output
+frontend/dist/
+frontend/.vite/
+
+# Test output
+screenshots/
+.playwright-browsers/
+*.log
+
+# Editors and operating systems
+.claude/
+.DS_Store
+Thumbs.db

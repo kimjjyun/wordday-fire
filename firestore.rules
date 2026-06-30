@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function teacherSession() { return get(/databases/$(database)/documents/teacherSessions/$(request.auth.uid)).data; }
+    function teacher() { return signedIn()
+      && exists(/databases/$(database)/documents/teacherSessions/$(request.auth.uid))
+      && get(/databases/$(database)/documents/teacherLogins/$(teacherSession().loginKey)).data.teacherUid == request.auth.uid; }
+    function teacherId() { return teacherSession().teacherId; }
+    function ownsClass(classId) { return teacher() && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == teacherId(); }
+    function session() { return get(/databases/$(database)/documents/studentSessions/$(request.auth.uid)).data; }
+    function validSession() { return signedIn()
+      && exists(/databases/$(database)/documents/studentSessions/$(request.auth.uid))
+      && get(/databases/$(database)/documents/studentLogins/$(session().loginKey)).data.studentUid == request.auth.uid; }
+    function studentIn(classId) { return validSession() && session().classId == classId; }
+    function ownsStudent(studentId) { return validSession() && session().studentId == studentId; }
+
+    match /teacherLogins/{loginKey} {
+      allow create: if signedIn() && !exists(/databases/$(database)/documents/teacherLogins/$(loginKey))
+        && request.resource.data.teacherUid == request.auth.uid;
+      allow update: if (signedIn()
+          && request.resource.data.teacherId == resource.data.teacherId
+          && request.resource.data.username == resource.data.username
+          && request.resource.data.passwordHash == resource.data.passwordHash
+          && request.resource.data.securityAnswerHash == resource.data.securityAnswerHash
+          && request.resource.data.claimProof == resource.data.passwordHash
+          && request.resource.data.teacherUid == request.auth.uid)
+        || (signedIn()
+          && request.resource.data.currentAnswerProof == resource.data.securityAnswerHash
+          && request.resource.data.passwordHash == request.resource.data.newPasswordHash
+          && request.resource.data.teacherUid == null)
+        || (teacher() && loginKey == teacherSession().loginKey);
+      allow get: if teacher() && loginKey == teacherSession().loginKey;
+    }
+
+    match /teacherSessions/{uid} {
+      allow create, update: if signedIn() && uid == request.auth.uid
+        && get(/databases/$(database)/documents/teacherLogins/$(request.resource.data.loginKey)).data.teacherUid == request.auth.uid;
+      allow read, delete: if signedIn() && uid == request.auth.uid;
+    }
+
+    match /teacherQuestions/{loginKey} {
+      allow get: if signedIn();
+      allow create, update: if teacher() && loginKey == teacherId();
+    }
+
+    match /teachers/{id} {
+      allow create: if teacher() && id == teacherId();
+      allow read, update: if teacher() && id == teacherId();
+    }
+
+    match /classes/{classId} {
+      allow create: if teacher() && request.resource.data.teacherId == teacherId();
+      allow get: if signedIn();
+      allow list, update, delete: if teacher() && resource.data.teacherId == teacherId();
+    }
+
+    match /students/{studentId} {
+      allow create: if ownsClass(request.resource.data.classId);
+      allow read: if ownsClass(resource.data.classId) || ownsStudent(studentId);
+      allow update, delete: if ownsClass(resource.data.classId);
+    }
+
+    match /studentLogins/{loginKey} {
+      allow create: if ownsClass(request.resource.data.classId);
+      allow get: if signedIn() && resource.data.studentUid == request.auth.uid;
+      allow update: if ownsClass(resource.data.classId)
+        || (signedIn()
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.classId == resource.data.classId
+          && request.resource.data.passwordHash == resource.data.passwordHash
+          && request.resource.data.claimProof == resource.data.passwordHash
+          && request.resource.data.studentUid == request.auth.uid)
+        || (signedIn() && resource.data.studentUid == request.auth.uid
+          && request.resource.data.currentProof == resource.data.passwordHash
+          && request.resource.data.passwordHash == request.resource.data.newPasswordHash);
+      allow delete: if ownsClass(resource.data.classId);
+    }
+
+    match /studentSessions/{uid} {
+      allow create, update: if signedIn() && uid == request.auth.uid
+        && get(/databases/$(database)/documents/studentLogins/$(request.resource.data.loginKey)).data.studentUid == request.auth.uid;
+      allow read, delete: if signedIn() && uid == request.auth.uid;
+    }
+
+    match /wordbooks/{id} {
+      allow read: if ownsClass(resource.data.classId) || studentIn(resource.data.classId);
+      allow create: if ownsClass(request.resource.data.classId);
+      allow update, delete: if ownsClass(resource.data.classId);
+    }
+
+    match /words/{id} {
+      function book() { return get(/databases/$(database)/documents/wordbooks/$(resource.data.wordBookId)).data; }
+      allow read: if ownsClass(book().classId) || studentIn(book().classId);
+      allow create: if ownsClass(get(/databases/$(database)/documents/wordbooks/$(request.resource.data.wordBookId)).data.classId);
+      allow update, delete: if ownsClass(book().classId);
+    }
+
+    match /studyRecords/{id} {
+      allow read: if ownsStudent(resource.data.studentId);
+      allow create: if ownsStudent(request.resource.data.studentId);
+      allow update, delete: if ownsStudent(resource.data.studentId);
+    }
+
+    match /tests/{id} {
+      allow read: if ownsClass(resource.data.classId) || studentIn(resource.data.classId);
+      allow create: if ownsClass(request.resource.data.classId);
+      allow update: if ownsClass(resource.data.classId)
+        || (studentIn(resource.data.classId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinedStudentIds'])
+          && request.resource.data.joinedStudentIds.hasAll([session().studentId]));
+      allow delete: if ownsClass(resource.data.classId);
+    }
+
+    match /testResults/{id} {
+      allow read: if ownsClass(resource.data.classId) || ownsStudent(resource.data.studentId);
+      allow create: if ownsStudent(request.resource.data.studentId) && studentIn(request.resource.data.classId);
+      allow update: if ownsStudent(resource.data.studentId);
+      allow delete: if ownsClass(resource.data.classId);
+    }
+  }
+}
