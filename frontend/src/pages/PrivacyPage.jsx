@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">Last updated</p>
-          <p className="text-[15px] font-black text-black tracking-tight">2026. 06. 24</p>
+          <p className="text-[15px] font-black text-black tracking-tight">2026. 06. 30</p>
         </div>
 
         <Section title="서비스 소개">
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
         <Section title="수집하는 정보">
           <ul className="space-y-2 list-none">
-            <Li><b>교사 계정:</b> 아이디, 비밀번호(암호화 저장), 이름, 보안 질문 및 답변</Li>
+            <Li><b>교사 계정:</b> 아이디, 비밀번호(암호화 저장), 이름, 학교명, 보안 질문 및 답변</Li>
             <Li><b>학생 계정:</b> 학번, 비밀번호(암호화 저장) — 학급 코드를 통해 교사가 등록</Li>
             <Li><b>학습 데이터:</b> 퀴즈 점수, 테스트 결과</Li>
             <Li><b>방문 기록:</b> 솔로 모드 익명 방문 횟수 (개인 식별 불가)</Li>

@@ -30,6 +30,7 @@ export default function TeacherDashboard() {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">Teacher</p>
             <h1 className="text-4xl font-black tracking-tighter">내 학급</h1>
+            {user?.schoolName && <p className="text-[13px] text-gray-400 font-medium mt-1">{user.schoolName}</p>}
           </div>
           <button
             onClick={() => navigate('/teacher/settings')}

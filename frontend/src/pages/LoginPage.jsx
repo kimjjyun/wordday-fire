@@ -12,7 +12,7 @@ const TABS = [
 
 export default function LoginPage() {
   const [tab, setTab] = useState('student');
-  const [form, setForm] = useState({ email: '', password: '', name: '', studentCode: '', classCode: '', securityQuestion: SECURITY_QUESTIONS[0], securityAnswer: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', schoolName: '', studentCode: '', classCode: '', securityQuestion: SECURITY_QUESTIONS[0], securityAnswer: '' });
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotQuestion, setForgotQuestion] = useState('');
@@ -38,7 +38,7 @@ export default function LoginPage() {
         login(result.data.token, { ...result.data.teacher, role: 'teacher' });
         navigate('/teacher');
       } else {
-        const result = await teacherRegister({ email: form.email, password: form.password, name: form.name, securityQuestion: form.securityQuestion, securityAnswer: form.securityAnswer });
+        const result = await teacherRegister({ email: form.email, password: form.password, name: form.name, schoolName: form.schoolName, securityQuestion: form.securityQuestion, securityAnswer: form.securityAnswer });
         login(result.data.token, { ...result.data.teacher, role: 'teacher' });
         navigate('/teacher');
       }
@@ -96,6 +96,7 @@ export default function LoginPage() {
       ) : (
         <form onSubmit={submit} className="flex-1 space-y-3">
           {tab === 'register' && <input className={inputCls} placeholder="교사 이름" value={form.name} onChange={set('name')} required />}
+          {tab === 'register' && <input className={inputCls} placeholder="학교명" value={form.schoolName} onChange={set('schoolName')} required />}
           {(tab === 'teacher' || tab === 'register') && <input className={inputCls} placeholder="교사 아이디" value={form.email} onChange={set('email')} required />}
           {tab === 'student' && <>
             <input className={inputCls} placeholder="학급 코드" value={form.classCode} onChange={set('classCode')} required />

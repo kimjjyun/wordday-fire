@@ -11,9 +11,10 @@ async function freshAnonymousUser() {
   return (await signInAnonymously(auth)).user;
 }
 
-export async function teacherRegister({ email: username, password, name, securityQuestion, securityAnswer }) {
+export async function teacherRegister({ email: username, password, name, schoolName, securityQuestion, securityAnswer }) {
   try {
     if (clean(password).length < 4) throw new Error('비밀번호는 4자 이상 입력해주세요.');
+    if (!clean(schoolName)) throw new Error('학교명을 입력해주세요.');
     const user = await freshAnonymousUser();
     const key = await teacherKey(username);
     const loginRef = doc(db, 'teacherLogins', key);
@@ -25,7 +26,7 @@ export async function teacherRegister({ email: username, password, name, securit
     };
     await setDoc(loginRef, data);
     await setDoc(doc(db, 'teacherSessions', user.uid), { loginKey: key, teacherId: key, createdAt: new Date().toISOString() });
-    const teacher = { id: key, username: data.username, name: clean(name), role: 'teacher', securityQuestion: data.securityQuestion, createdAt: data.createdAt };
+    const teacher = { id: key, username: data.username, name: clean(name), schoolName: clean(schoolName), role: 'teacher', securityQuestion: data.securityQuestion, createdAt: data.createdAt };
     await setDoc(doc(db, 'teachers', key), teacher);
     await setDoc(doc(db, 'teacherQuestions', key), { securityQuestion: data.securityQuestion });
     return response({ token: user.uid, teacher });
