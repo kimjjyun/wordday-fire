@@ -6,6 +6,7 @@ import { createTest, createTestWithWords, getClassTestHistory } from '../../api/
 import { RECOMMENDED_WORDS, WORDS_PER_DAY } from '../../data/recommendedWords';
 import Layout from '../../components/Layout';
 import LoadingDots from '../../components/LoadingDots';
+import ShareButton from '../../components/ShareButton';
 
 function downloadStudentTemplate() {
   const content = '이름,학번,비밀번호\n홍길동,2301,1234\n이영희,2302,1234';
@@ -42,6 +43,8 @@ export default function ClassDetailPage() {
   const [csvResult,    setCsvResult]    = useState(null);
   const [csvError,     setCsvError]     = useState('');
   const [testHistory,  setTestHistory]  = useState([]);
+  const [showInvite,   setShowInvite]   = useState(false);
+  const [inviteQr,     setInviteQr]     = useState('');
 
   // 학생 선택 / 수정
   const [selectedIds,  setSelectedIds]  = useState(new Set());
@@ -62,6 +65,14 @@ export default function ClassDetailPage() {
   const [togetherStudentIds,  setTogetherStudentIds]  = useState(new Set());
   const [togetherLoading,     setTogetherLoading]     = useState(false);
   const [togetherError,       setTogetherError]       = useState('');
+
+  const inviteUrl = cls ? `${window.location.origin}/login?class=${encodeURIComponent(cls.code)}` : '';
+  const openInvite = async () => {
+    setShowInvite(true);
+    setInviteQr('');
+    const QRCode = (await import('qrcode')).default;
+    setInviteQr(await QRCode.toDataURL(inviteUrl, { width: 240, margin: 1, color: { dark: '#000000', light: '#ffffff' } }));
+  };
 
   const openTogether = () => {
     if (!cls) return;
@@ -245,6 +256,26 @@ export default function ClassDetailPage() {
 
   return (
     <Layout title="WORDDAY" back>
+
+      {/* 학급 초대 모달 */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setShowInvite(false)}>
+          <div className="bg-white w-full max-w-lg rounded-t-[28px] px-6 pt-6 pb-10 text-center" onClick={event => event.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6" />
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-2">Class Invite</p>
+            <h2 className="text-2xl font-black tracking-tighter">{cls.name}</h2>
+            <p className="text-[13px] text-gray-400 font-medium mt-1 mb-5">링크를 누르면 학급 코드 {cls.code}가 자동 입력됩니다.</p>
+            <div className="w-60 h-60 mx-auto rounded-2xl border border-gray-100 flex items-center justify-center mb-5">
+              {inviteQr ? <img src={inviteQr} alt={`${cls.name} 초대 QR 코드`} className="w-56 h-56" /> : <LoadingDots label="QR 생성 중" />}
+            </div>
+            <div className="space-y-2.5">
+              <ShareButton title={`${cls.name} WordDay 초대`} text={`WordDay ${cls.name}에 참여하세요. 학급 코드: ${cls.code}`} url={inviteUrl} label="학급 초대 공유하기" className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px]" />
+              <button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="w-full border border-gray-200 text-gray-500 font-bold py-4 rounded-full text-[14px]">초대 링크 복사</button>
+              <button onClick={() => setShowInvite(false)} className="w-full text-gray-300 font-bold py-2 text-[13px]">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 함께하기 바텀시트 모달 ── */}
       {showTogether && (
@@ -461,6 +492,7 @@ export default function ClassDetailPage() {
               onClick={() => { navigator.clipboard.writeText(cls.code); }}
               className="text-[11px] font-bold text-gray-400 border border-gray-200 rounded-full px-3 py-1 hover:border-gray-400 transition"
             >복사</button>
+            <button onClick={openInvite} className="text-[11px] font-bold text-white bg-black rounded-full px-3 py-1">초대</button>
           </div>
         </div>
 

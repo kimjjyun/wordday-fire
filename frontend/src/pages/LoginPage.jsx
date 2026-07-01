@@ -4,6 +4,7 @@ import { teacherLogin, teacherRegister, studentLogin, getSecurityQuestion, reset
 import { useAuthStore } from '../store/authStore';
 import { SECURITY_QUESTIONS } from '../data/securityQuestions';
 import LoadingDots from '../components/LoadingDots';
+import ShareButton from '../components/ShareButton';
 
 const STUDENT_LOGIN_STORAGE = 'wordday-student-login';
 
@@ -20,8 +21,9 @@ const TABS = [
 
 export default function LoginPage() {
   const savedStudent = savedStudentLogin();
+  const requestedClass = (new URLSearchParams(window.location.search).get('class') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const [tab, setTab] = useState('student');
-  const [form, setForm] = useState({ email: '', password: '', name: '', schoolName: '', studentCode: savedStudent?.studentCode || '', classCode: savedStudent?.classCode || '', securityQuestion: SECURITY_QUESTIONS[0], securityAnswer: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', schoolName: '', studentCode: savedStudent?.studentCode || '', classCode: requestedClass || savedStudent?.classCode || '', securityQuestion: SECURITY_QUESTIONS[0], securityAnswer: '' });
   const [rememberStudent, setRememberStudent] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -143,6 +145,7 @@ export default function LoginPage() {
 
       <div className="pb-10 pt-6 text-center space-y-3">
         <Link to="/solo" className="block text-[12px] text-gray-300">로그인 없이 혼자 공부하기 →</Link>
+        <ShareButton url="https://wordday.web.app/" label="WordDay 공유하기" className="text-[12px] text-gray-400 font-bold" />
         <Link to="/privacy" className="block text-[11px] text-gray-200">개인정보처리방침</Link>
         <p className="text-[11px] text-gray-200">WordDay © 2026</p>
       </div>

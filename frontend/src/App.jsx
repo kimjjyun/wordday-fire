@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import InstallGuide from './components/InstallGuide';
 
 import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -38,6 +39,7 @@ function RequireAuth({ role, children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <InstallGuide />
       <Routes>
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { RECOMMENDED_WORDS } from '../../data/recommendedWords';
+import ShareButton from '../../components/ShareButton';
 
 // 오답 풀은 전체 단어에서 뽑아 선택지 품질 유지
 const POOL_KOREAN = [...new Set(RECOMMENDED_WORDS.map(w => w.korean))];
@@ -96,6 +97,7 @@ export default function SoloQuiz() {
         )}
         <div className="mt-auto pt-8 space-y-2.5">
           <button onClick={restart} className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition">다시 풀기</button>
+          <ShareButton title="WordDay 퀴즈" text={`WordDay 퀴즈에서 ${score}/${questions.length}점! 매일 10분, 단어 하나씩.`} url="https://wordday.web.app/solo" label="결과 공유하기" className="w-full bg-white text-black border border-gray-200 font-bold py-4 rounded-full text-[15px]" />
           <button onClick={() => navigate('/solo')} className="w-full bg-white text-black border-2 border-black font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition">홈으로</button>
         </div>
       </div>
