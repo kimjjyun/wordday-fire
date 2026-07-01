@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { clean, docsWhere, now, response } from './helpers';
@@ -40,14 +40,19 @@ export async function addWord(id, item) {
 export async function bulkAddWords(id, words) {
   await ownedWordbook(id);
   let order = (await docsWhere('words', 'wordBookId', id)).length;
-  let added = 0;
-  for (const item of words) {
-    if (!clean(item.english) || !clean(item.korean)) continue;
-    await addDoc(collection(db, 'words'), { english: clean(item.english), korean: clean(item.korean), example: clean(item.example) || null, pronunciation: clean(item.pronunciation) || null, wordBookId: id, order: order++ });
-    added++;
+  const valid = words.filter(item => clean(item.english) && clean(item.korean));
+  const batchSize = 450;
+  for (let start = 0; start < valid.length; start += batchSize) {
+    const batch = writeBatch(db);
+    for (const item of valid.slice(start, start + batchSize)) {
+      const wordRef = doc(collection(db, 'words'));
+      batch.set(wordRef, { english: clean(item.english), korean: clean(item.korean), example: clean(item.example) || null, pronunciation: clean(item.pronunciation) || null, wordBookId: id, order: order++ });
+    }
+    await batch.commit();
   }
-  return response({ added });
+  return response({ added: valid.length });
 }
+
 
 export async function importCSV(id, file) {
   const text = await file.text();

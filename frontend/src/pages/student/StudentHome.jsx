@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getTodayWords, getStats } from '../../api/study';
-import { getClassActiveTest } from '../../api/tests';
+import { subscribeClassActiveTest } from '../../api/tests';
 import { useAuthStore } from '../../store/authStore';
 import Layout from '../../components/Layout';
 
@@ -56,19 +56,12 @@ export default function StudentHome() {
       .finally(() => setLoading(false));
   }, [location.key]);
 
-  // 학급 채널 구독 — 선생님 테스트 초대 수신
+  // Firestore 실시간 구독 — 선생님이 시험을 만들면 즉시 초대 수신
   useEffect(() => {
     if (!user?.classId) return;
-    let stopped = false;
-    const check = async () => {
-      try {
-        const { data } = await getClassActiveTest();
-        if (!stopped && data?.status === 'waiting') setInvite({ testId: data.id, roomCode: data.roomCode });
-      } catch { /* 다음 주기에 재시도 */ }
-    };
-    check();
-    const timer = setInterval(check, 5000);
-    return () => { stopped = true; clearInterval(timer); };
+    return subscribeClassActiveTest(data => {
+      setInvite(data?.status === 'waiting' ? { testId: data.id, roomCode: data.roomCode } : null);
+    }, () => setInvite(null));
   }, [user?.classId]);
 
   const remaining = Math.max(0, words.length - PREVIEW);

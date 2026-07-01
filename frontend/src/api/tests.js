@@ -1,4 +1,4 @@
-import { addDoc, arrayUnion, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayUnion, collection, doc, getDoc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { clean, docsWhere, now, response } from './helpers';
@@ -85,11 +85,17 @@ export async function getResults(id) {
   return response({ avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : 0, topScore: scores.length ? Math.max(...scores) : 0, results: rows });
 }
 
-export async function getClassActiveTest() {
+export function subscribeClassActiveTest(onChange, onError = () => {}) {
   const student = currentUser();
-  const tests = (await docsWhere('tests', 'classId', student.classId)).filter(test => ['waiting', 'active'].includes(test.status)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const test = tests.find(item => !item.targetStudentIds?.length || item.targetStudentIds.includes(student.id));
-  return response(test ? { id: test.id, roomCode: test.roomCode, status: test.status } : null);
+  const activeTests = query(collection(db, 'tests'), where('classId', '==', student.classId));
+  return onSnapshot(activeTests, snapshot => {
+    const tests = snapshot.docs
+      .map(item => ({ id: item.id, ...item.data() }))
+      .filter(test => ['waiting', 'active'].includes(test.status))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const test = tests.find(item => !item.targetStudentIds?.length || item.targetStudentIds.includes(student.id));
+    onChange(test ? { id: test.id, roomCode: test.roomCode, status: test.status } : null);
+  }, onError);
 }
 
 export async function getClassTestHistory(classId) {
