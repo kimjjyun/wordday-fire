@@ -6,8 +6,8 @@ export default function LoadingDots({ label = '처리 중', className = '' }) {
         {[0, 1, 2].map(index => (
           <span
             key={index}
-            className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
-            style={{ animationDelay: `${index * 140}ms`, animationDuration: '900ms' }}
+            className="loading-dot h-2 w-2 rounded-full bg-current"
+            style={{ animationDelay: `${index * 140}ms` }}
           />
         ))}
       </span>

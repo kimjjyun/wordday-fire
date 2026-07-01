@@ -29,3 +29,13 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .slide-down { animation: slideDown 0.2s ease-out; }
+
+/* 처리 상태: 작은 화면에서도 눈에 띄는 순차 점 애니메이션 */
+@keyframes loadingDot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0) scale(0.8); }
+  30% { opacity: 1; transform: translateY(-5px) scale(1.15); }
+}
+.loading-dot {
+  animation: loadingDot 0.9s ease-in-out infinite;
+  will-change: transform, opacity;
+}
