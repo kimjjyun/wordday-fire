@@ -5,6 +5,7 @@ import { createWordBook, bulkAddWords, deleteWordBook } from '../../api/wordbook
 import { createTest, createTestWithWords, getClassTestHistory } from '../../api/tests';
 import { RECOMMENDED_WORDS, WORDS_PER_DAY } from '../../data/recommendedWords';
 import Layout from '../../components/Layout';
+import LoadingDots from '../../components/LoadingDots';
 
 function downloadStudentTemplate() {
   const content = '이름,학번,비밀번호\n홍길동,2301,1234\n이영희,2302,1234';
@@ -438,7 +439,7 @@ export default function ClassDetailPage() {
                     disabled={togetherLoading || (!usesDaySelect && !togetherWbId)}
                     className="flex-1 bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition disabled:opacity-40"
                   >
-                    {togetherLoading ? '시작 중...' : '테스트 시작 →'}
+                    {togetherLoading ? <LoadingDots label="시작 중" /> : '테스트 시작 →'}
                   </button>
                 </div>
               )}
@@ -527,7 +528,7 @@ export default function ClassDetailPage() {
                   </button>
                   {directMsg && <p className={`text-[12px] font-medium text-center py-1 ${directMsg.includes('오류') ? 'text-black' : 'text-gray-500'}`}>{directMsg}</p>}
                   <button onClick={handleDirectSubmit} disabled={directLoading} className="w-full bg-black text-white font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40">
-                    {directLoading ? '등록 중...' : '학생 등록'}
+                    {directLoading ? <LoadingDots label="등록 중" /> : '학생 등록'}
                   </button>
                 </div>
               )}
@@ -541,7 +542,7 @@ export default function ClassDetailPage() {
                     </button>
                   </div>
                   <label className="flex flex-col items-center justify-center border border-dashed border-gray-200 rounded-2xl py-6 cursor-pointer hover:border-gray-400 transition">
-                    {csvLoading ? <p className="text-[13px] font-medium text-gray-400">업로드 중...</p> : (
+                    {csvLoading ? <LoadingDots label="업로드 중" className="text-[13px] font-medium text-gray-400" /> : (
                       <>
                         <p className="text-[13px] font-medium text-gray-400">CSV 파일 선택</p>
                         <p className="text-[11px] text-gray-300 mt-1">.csv 파일만 지원</p>
@@ -647,7 +648,7 @@ export default function ClassDetailPage() {
                               disabled={editLoading}
                               className="flex-1 bg-black text-white text-[12px] font-bold py-2 rounded-full transition disabled:opacity-40"
                             >
-                              {editLoading ? '저장 중...' : '저장'}
+                              {editLoading ? <LoadingDots label="저장 중" /> : '저장'}
                             </button>
                             <button
                               onClick={() => { setEditForm(null); setEditMsg(''); }}
@@ -673,7 +674,7 @@ export default function ClassDetailPage() {
                     disabled={actionLoading}
                     className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full transition active:scale-[0.97] disabled:opacity-40"
                   >
-                    {actionLoading ? '삭제 중...' : `삭제 (${selectedIds.size}명)`}
+                    {actionLoading ? <LoadingDots label="삭제 중" /> : `삭제 (${selectedIds.size}명)`}
                   </button>
                   {selectedIds.size === 1 && (
                     <button
@@ -744,7 +745,7 @@ export default function ClassDetailPage() {
 
               <div className="flex gap-2 pt-1">
                 <button onClick={handleAddWordBook} disabled={wbLoading} className="flex-1 bg-black text-white font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40">
-                  {wbLoading ? (withDefault ? '단어 추가 중...' : '생성 중...') : '만들기'}
+                  {wbLoading ? <LoadingDots label={withDefault ? '단어 추가 중' : '생성 중'} /> : '만들기'}
                 </button>
                 <button onClick={() => { setShowAddWb(false); setWithDefault(true); }} disabled={wbLoading} className="flex-1 border border-gray-200 text-black font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40">취소</button>
               </div>
@@ -774,7 +775,7 @@ export default function ClassDetailPage() {
                           onClick={() => handleDeleteWordBook(wb.id)}
                           disabled={deletingWbId === wb.id}
                           className="text-[11px] font-bold text-white bg-black rounded-full px-3 py-1.5 transition disabled:opacity-40"
-                        >{deletingWbId === wb.id ? '삭제 중' : '삭제'}</button>
+                        >{deletingWbId === wb.id ? <LoadingDots label="삭제 중" /> : '삭제'}</button>
                         <button
                           onClick={() => setConfirmWbId(null)}
                           className="text-[11px] font-bold text-gray-300 hover:text-black transition"

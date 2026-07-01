@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getWordBook, addWord, bulkAddWords, importCSV, deleteWord } from '../../api/wordbooks';
 import { createTest, createTestWithWords } from '../../api/tests';
 import Layout from '../../components/Layout';
+import LoadingDots from '../../components/LoadingDots';
 import { CATEGORIES, RECOMMENDED_WORDS, TOTAL_DAYS } from '../../data/recommendedWords';
 
 function downloadWordTemplate() {
@@ -214,7 +215,7 @@ export default function WordBookPage() {
               </button>
               {directMsg && <p className={`text-[12px] font-medium text-center ${directMsg.includes('오류') ? 'text-black' : 'text-gray-400'}`}>{directMsg}</p>}
               <button onClick={handleDirectSubmit} disabled={directLoading} className="w-full bg-black text-white font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40 mt-1">
-                {directLoading ? '추가 중...' : '단어 추가'}
+                {directLoading ? <LoadingDots label="추가 중" /> : '단어 추가'}
               </button>
             </div>
           )}
@@ -313,7 +314,7 @@ export default function WordBookPage() {
               {suggestMsg && <p className={`text-[12px] font-medium text-center ${suggestMsg.includes('오류') ? 'text-black' : 'text-gray-400'}`}>{suggestMsg}</p>}
               <button onClick={handleAddSelected} disabled={selected.size === 0 || suggestLoading}
                 className="w-full bg-black text-white font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40">
-                {suggestLoading ? '추가 중...' : `선택한 ${selected.size}개 추가`}
+                {suggestLoading ? <LoadingDots label="추가 중" /> : `선택한 ${selected.size}개 추가`}
               </button>
             </div>
           )}
@@ -328,7 +329,7 @@ export default function WordBookPage() {
                 </button>
               </div>
               <label className="flex flex-col items-center justify-center border border-dashed border-gray-200 rounded-2xl py-6 cursor-pointer hover:border-gray-400 transition">
-                {importLoading ? <p className="text-[13px] font-medium text-gray-400">업로드 중...</p> : (
+                {importLoading ? <LoadingDots label="업로드 중" className="text-[13px] font-medium text-gray-400" /> : (
                   <>
                     <p className="text-[13px] font-medium text-gray-400">CSV 파일 선택</p>
                     <p className="text-[11px] text-gray-300 mt-1">.csv 파일만 지원</p>

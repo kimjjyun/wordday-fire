@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { teacherLogin, teacherRegister, studentLogin, getSecurityQuestion, resetTeacherPassword } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { SECURITY_QUESTIONS } from '../data/securityQuestions';
+import LoadingDots from '../components/LoadingDots';
 
 const STUDENT_LOGIN_STORAGE = 'wordday-student-login';
 
@@ -110,7 +111,7 @@ export default function LoginPage() {
           </>}
           {error && <p className="text-[13px] bg-gray-50 rounded-2xl px-4 py-3 text-center">{error}</p>}
           {success && <p className="text-[13px] bg-gray-50 rounded-2xl px-4 py-3 text-center">{success}</p>}
-          <button disabled={loading || !!success} className="w-full bg-black text-white font-bold py-4 rounded-full">{loading ? '처리 중...' : forgotQuestion ? '비밀번호 변경하기' : '보안 질문 확인하기'}</button>
+          <button disabled={loading || !!success} className="w-full bg-black text-white font-bold py-4 rounded-full">{loading ? <LoadingDots /> : forgotQuestion ? '비밀번호 변경하기' : '보안 질문 확인하기'}</button>
           <button type="button" onClick={() => { setShowForgot(false); setError(''); setSuccess(''); }} className="w-full border border-gray-200 text-gray-400 font-bold py-4 rounded-full">돌아가기</button>
         </form>
       ) : (
@@ -135,7 +136,7 @@ export default function LoginPage() {
             <p className="text-[11px] text-gray-300 px-1">비밀번호를 잊었을 때 답변이 필요합니다.</p>
           </>}
           {error && <p className="text-[13px] bg-gray-50 rounded-2xl px-4 py-3 text-center">{error}</p>}
-          <button disabled={loading} className="w-full bg-black text-white font-bold py-4 rounded-full">{loading ? '처리 중...' : tab === 'register' ? '가입하기' : '로그인'}</button>
+          <button disabled={loading} className="w-full bg-black text-white font-bold py-4 rounded-full">{loading ? <LoadingDots /> : tab === 'register' ? '가입하기' : '로그인'}</button>
           {tab === 'teacher' && <button type="button" onClick={() => { setShowForgot(true); setError(''); }} className="w-full text-[12px] text-gray-300 py-1">비밀번호를 잊으셨나요?</button>}
         </form>
       )}

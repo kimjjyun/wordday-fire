@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { setSecurityQuestion } from '../../api/auth';
 import { SECURITY_QUESTIONS } from '../../data/securityQuestions';
 import Layout from '../../components/Layout';
+import LoadingDots from '../../components/LoadingDots';
 
 const inputCls = 'w-full border border-gray-200 rounded-2xl px-4 py-3.5 text-[15px] outline-none focus:border-black';
 
@@ -28,7 +29,7 @@ export default function TeacherSettingsPage() {
           <select className={inputCls} value={question} onChange={event => setQuestion(event.target.value)}>{SECURITY_QUESTIONS.map(value => <option key={value}>{value}</option>)}</select>
           <input className={inputCls} placeholder="보안 질문 답변" value={answer} onChange={event => setAnswer(event.target.value)} required />
           {message && <p className="text-[13px] text-center py-2">{message}</p>}
-          <button disabled={loading} className="w-full bg-black text-white font-bold py-4 rounded-full disabled:opacity-40">{loading ? '저장 중...' : '보안 질문 저장'}</button>
+          <button disabled={loading} className="w-full bg-black text-white font-bold py-4 rounded-full disabled:opacity-40">{loading ? <LoadingDots label="저장 중" /> : '보안 질문 저장'}</button>
         </form>
       </div>
     </Layout>

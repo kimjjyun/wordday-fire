@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { changeStudentPassword } from '../../api/auth';
 import Layout from '../../components/Layout';
+import LoadingDots from '../../components/LoadingDots';
 
 const inputCls = 'w-full border border-gray-200 rounded-2xl px-4 py-3.5 text-[15px] font-medium outline-none focus:border-black transition placeholder:text-gray-300 placeholder:font-normal';
 
@@ -87,7 +88,7 @@ export default function StudentSettingsPage() {
             disabled={loading}
             className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition disabled:opacity-40"
           >
-            {loading ? '변경 중...' : '비밀번호 변경'}
+            {loading ? <LoadingDots label="변경 중" /> : '비밀번호 변경'}
           </button>
         </form>
 
