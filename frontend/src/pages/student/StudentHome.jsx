@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getTodayWords, getStats } from '../../api/study';
+import { getHomeData } from '../../api/study';
 import { subscribeClassActiveTest } from '../../api/tests';
 import { useAuthStore } from '../../store/authStore';
 import Layout from '../../components/Layout';
@@ -51,8 +51,8 @@ export default function StudentHome() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getTodayWords(), getStats()])
-      .then(([wr, sr]) => { setWords(wr.data); setStats(sr.data); })
+    getHomeData()
+      .then(({ data }) => { setWords(data.words); setStats(data.stats); })
       .finally(() => setLoading(false));
   }, [location.key]);
 
@@ -220,18 +220,19 @@ export default function StudentHome() {
           </div>
         )}
 
-        {/* 함께하기 */}
+        {/* 학급 진도와 별개로 혼자 복습 */}
         {!loading && (
           <div className="pt-8">
             <div className="h-px bg-gray-100 mb-5" />
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-2">Together</p>
-            <p className="text-[12px] text-gray-300 font-medium mb-3">선생님이 시작한 테스트에 코드로 참여해요</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-2">Solo</p>
+            <p className="text-[12px] text-gray-300 font-medium mb-3">학급 진도와 관계없이 원하는 단어를 복습해요</p>
             <button
-              onClick={() => navigate('/student/test/wait')}
+              onClick={() => navigate('/solo')}
               className="w-full border border-gray-200 text-black font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition hover:border-gray-400"
             >
-              함께하기
+              혼자 공부하기
             </button>
+            <button onClick={() => navigate('/student/test/wait')} className="w-full text-[11px] text-gray-300 font-medium py-3">방 코드로 참여</button>
           </div>
         )}
 

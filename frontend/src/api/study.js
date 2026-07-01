@@ -10,6 +10,27 @@ async function classWords(classId) {
   return (await Promise.all(books.map(book => docsWhere('words', 'wordBookId', book.id)))).flat();
 }
 
+export async function getHomeData() {
+  const student = currentStudent();
+  const [words, records] = await Promise.all([
+    classWords(student.classId),
+    docsWhere('studyRecords', 'studentId', student.id),
+  ]);
+  const recordMap = new Map(records.map(record => [record.wordId, record]));
+  const todayWords = words
+    .map(word => ({ ...word, ...(recordMap.get(word.id) || { state: 'new', nextReview: now(), stability: 1, difficulty: 5 }) }))
+    .filter(word => new Date(word.nextReview) <= new Date())
+    .sort((a, b) => new Date(a.nextReview) - new Date(b.nextReview))
+    .slice(0, 20);
+  const studiedIds = new Set(records.map(record => record.wordId));
+  const stats = {
+    totalWords: words.length,
+    mastered: records.filter(record => record.state === 'review' && record.stability >= 10).length,
+    due: words.filter(word => !studiedIds.has(word.id)).length + records.filter(record => new Date(record.nextReview) <= new Date()).length,
+  };
+  return response({ words: todayWords, stats });
+}
+
 export async function getTodayWords() {
   const student = currentStudent();
   const words = await classWords(student.classId);

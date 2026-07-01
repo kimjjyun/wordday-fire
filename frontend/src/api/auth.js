@@ -90,9 +90,12 @@ export async function studentLogin({ classCode, studentCode, password }) {
     await updateDoc(loginRef, { studentUid: user.uid, claimProof: await passwordProof(password), claimedAt: new Date().toISOString() });
     const loginSnap = await getDoc(loginRef);
     if (!loginSnap.exists()) throw new Error('로그인 정보를 찾을 수 없습니다.');
+    const classPromise = getDoc(doc(db, 'classes', loginSnap.data().classId));
     await setDoc(doc(db, 'studentSessions', user.uid), { loginKey: key, studentId: loginSnap.data().studentId, classId: loginSnap.data().classId, createdAt: new Date().toISOString() });
-    const studentSnap = await getDoc(doc(db, 'students', loginSnap.data().studentId));
-    const classSnap = await getDoc(doc(db, 'classes', loginSnap.data().classId));
+    const [studentSnap, classSnap] = await Promise.all([
+      getDoc(doc(db, 'students', loginSnap.data().studentId)),
+      classPromise,
+    ]);
     if (!studentSnap.exists() || !classSnap.exists()) throw new Error('학생 정보를 찾을 수 없습니다.');
     return response({ token: user.uid, student: { id: studentSnap.id, ...studentSnap.data(), classId: classSnap.id, class: { id: classSnap.id, name: classSnap.data().name } } });
   } catch (error) {

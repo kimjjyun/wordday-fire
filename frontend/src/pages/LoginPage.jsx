@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { teacherLogin, teacherRegister, studentLogin, getSecurityQuestion, resetTeacherPassword } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { SECURITY_QUESTIONS } from '../data/securityQuestions';
+
+const STUDENT_LOGIN_STORAGE = 'wordday-student-login';
+
+function savedStudentLogin() {
+  try { return JSON.parse(localStorage.getItem(STUDENT_LOGIN_STORAGE) || 'null'); }
+  catch { return null; }
+}
 
 const TABS = [
   { key: 'student', label: '학생' },
@@ -11,8 +18,10 @@ const TABS = [
 ];
 
 export default function LoginPage() {
+  const savedStudent = savedStudentLogin();
   const [tab, setTab] = useState('student');
-  const [form, setForm] = useState({ email: '', password: '', name: '', schoolName: '', studentCode: '', classCode: '', securityQuestion: SECURITY_QUESTIONS[0], securityAnswer: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '', schoolName: '', studentCode: savedStudent?.studentCode || '', classCode: savedStudent?.classCode || '', securityQuestion: SECURITY_QUESTIONS[0], securityAnswer: '' });
+  const [rememberStudent, setRememberStudent] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotQuestion, setForgotQuestion] = useState('');
@@ -22,7 +31,13 @@ export default function LoginPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const login = useAuthStore(state => state.login);
+  const token = useAuthStore(state => state.token);
+  const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (token && user?.role) navigate(user.role === 'teacher' ? '/teacher' : '/student', { replace: true });
+  }, [token, user?.role, navigate]);
   const set = key => event => setForm(value => ({ ...value, [key]: event.target.value }));
   const inputCls = 'w-full border border-gray-200 rounded-2xl px-4 py-3.5 text-[15px] font-medium outline-none focus:border-black transition placeholder:text-gray-300';
 
@@ -31,6 +46,11 @@ export default function LoginPage() {
     try {
       if (tab === 'student') {
         const result = await studentLogin({ classCode: form.classCode, studentCode: form.studentCode, password: form.password });
+        if (rememberStudent) {
+          localStorage.setItem(STUDENT_LOGIN_STORAGE, JSON.stringify({ classCode: form.classCode.trim().toUpperCase(), studentCode: form.studentCode.trim() }));
+        } else {
+          localStorage.removeItem(STUDENT_LOGIN_STORAGE);
+        }
         login(result.data.token, { ...result.data.student, role: 'student' });
         navigate('/student');
       } else if (tab === 'teacher') {
@@ -99,10 +119,16 @@ export default function LoginPage() {
           {tab === 'register' && <input className={inputCls} placeholder="학교명" value={form.schoolName} onChange={set('schoolName')} required />}
           {(tab === 'teacher' || tab === 'register') && <input className={inputCls} placeholder="교사 아이디" value={form.email} onChange={set('email')} required />}
           {tab === 'student' && <>
-            <input className={inputCls} placeholder="학급 코드" value={form.classCode} onChange={set('classCode')} required />
-            <input className={inputCls} placeholder="학번" value={form.studentCode} onChange={set('studentCode')} required />
+            <input className={inputCls} autoComplete="organization" placeholder="학급 코드" value={form.classCode} onChange={event => setForm(value => ({ ...value, classCode: event.target.value.toUpperCase() }))} required />
+            <input className={inputCls} autoComplete="username" placeholder="학번" value={form.studentCode} onChange={set('studentCode')} required />
           </>}
-          <input className={inputCls} type="password" minLength={4} placeholder="비밀번호" value={form.password} onChange={set('password')} required />
+          <input className={inputCls} type="password" autoComplete={tab === 'register' ? 'new-password' : 'current-password'} minLength={4} placeholder="비밀번호" value={form.password} onChange={set('password')} required />
+          {tab === 'student' && (
+            <label className="flex items-center gap-2 px-1 text-[11px] font-medium text-gray-400">
+              <input type="checkbox" checked={rememberStudent} onChange={event => setRememberStudent(event.target.checked)} />
+              학급 코드와 학번을 이 기기에 기억하기
+            </label>
+          )}
           {tab === 'register' && <>
             <select className={inputCls} value={form.securityQuestion} onChange={set('securityQuestion')}>{SECURITY_QUESTIONS.map(question => <option key={question}>{question}</option>)}</select>
             <input className={inputCls} placeholder="보안 질문 답변" value={form.securityAnswer} onChange={set('securityAnswer')} required />
