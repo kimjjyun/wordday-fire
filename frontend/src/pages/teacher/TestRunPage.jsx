@@ -32,7 +32,7 @@ export default function TestRunPage() {
   const [studentCount, setStudentCount] = useState(0);
   const [submittedCount, setSubmittedCount] = useState(0);
   const [words, setWords] = useState([]);
-  const targetStudentIds = location.state?.targetStudentIds ?? [];
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let stopped = false;
@@ -40,13 +40,16 @@ export default function TestRunPage() {
       try {
         const { data } = await getLiveTest(id);
         if (stopped) return;
+        setLoadError('');
         setRoomCode(data.roomCode);
         setStatus(data.status);
         setStudentCount(data.studentCount);
         setSubmittedCount(data.submittedCount);
         setWords(data.words || []);
         if (data.status === 'finished') sessionStorage.setItem('test_class_result', JSON.stringify({ avg: data.avg, topScore: data.topScore }));
-      } catch { /* 다음 주기에 재시도 */ }
+      } catch (error) {
+        if (!stopped) setLoadError(error.response?.data?.error || error.message || '시험 정보를 불러오지 못했습니다.');
+      }
     };
     refresh();
     const timer = setInterval(refresh, 2000);
@@ -66,6 +69,9 @@ export default function TestRunPage() {
   return (
     <Layout title="조회 테스트 진행" back>
       <div className="space-y-5">
+        {loadError && (
+          <p className="bg-gray-50 rounded-2xl px-4 py-3 text-[13px] font-medium text-center">{loadError}</p>
+        )}
         {status === 'waiting' && (
           <>
             <div className="border border-gray-100 rounded-2xl p-6 text-center">

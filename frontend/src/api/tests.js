@@ -6,6 +6,9 @@ import { bulkAddWords } from './wordbooks';
 
 const currentUser = () => useAuthStore.getState().user;
 const roomCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
+const resultsForTest = async (classId, testId) =>
+  (await docsWhere('testResults', 'classId', classId))
+    .filter(result => result.testId === testId);
 
 export async function createTest(data) {
   const test = { classId: data.classId, wordBookId: data.wordBookId, roomCode: roomCode(), status: 'waiting', targetStudentIds: data.targetStudentIds || [], joinedStudentIds: [], teacherId: currentUser().id, createdAt: now() };
@@ -22,7 +25,10 @@ export async function createTestWithWords(data) {
 
 export async function startTest(id) { await updateDoc(doc(db, 'tests', id), { status: 'active', startedAt: now() }); return response({ id, status: 'active' }); }
 export async function finishTest(id) {
-  const results = await docsWhere('testResults', 'testId', id);
+  const testSnap = await getDoc(doc(db, 'tests', id));
+  if (!testSnap.exists()) throw new Error('시험을 찾을 수 없습니다.');
+  const test = { id: testSnap.id, ...testSnap.data() };
+  const results = await resultsForTest(test.classId, id);
   const scores = results.map(result => result.score);
   const summary = {
     status: 'finished', finishedAt: now(), submittedCount: results.length,
@@ -35,10 +41,10 @@ export async function finishTest(id) {
 }
 
 export async function joinTest(code) {
-  const tests = await docsWhere('tests', 'roomCode', clean(code).toUpperCase());
-  const test = tests.find(item => item.status === 'waiting');
   const student = currentUser();
-  if (!test || test.classId !== student.classId || (test.targetStudentIds?.length && !test.targetStudentIds.includes(student.id))) throw new Error('입장할 수 없는 시험입니다.');
+  const tests = await docsWhere('tests', 'classId', student.classId);
+  const test = tests.find(item => item.roomCode === clean(code).toUpperCase() && item.status === 'waiting');
+  if (!test || (test.targetStudentIds?.length && !test.targetStudentIds.includes(student.id))) throw new Error('입장할 수 없는 시험입니다.');
   await updateDoc(doc(db, 'tests', test.id), { joinedStudentIds: arrayUnion(student.id) });
   return response({ testId: test.id, roomCode: test.roomCode });
 }
@@ -48,7 +54,7 @@ export async function getLiveTest(id) {
   if (!snap.exists()) throw new Error('시험을 찾을 수 없습니다.');
   const test = { id: snap.id, ...snap.data() };
   const words = (await docsWhere('words', 'wordBookId', test.wordBookId)).sort((a, b) => a.order - b.order);
-  const results = currentUser()?.role === 'teacher' ? await docsWhere('testResults', 'testId', test.id) : [];
+  const results = currentUser()?.role === 'teacher' ? await resultsForTest(test.classId, test.id) : [];
   const scores = results.map(result => result.score);
   return response({ ...test, studentCount: test.joinedStudentIds?.length || 0, submittedCount: currentUser()?.role === 'teacher' ? results.length : (test.submittedCount || 0), words: test.status === 'waiting' ? [] : words.map(word => ({ id: word.id, english: word.english, answer: word.korean })), avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : (test.avg || 0), topScore: scores.length ? Math.max(...scores) : (test.topScore || 0), total: words.length || test.total || 0 });
 }
@@ -65,7 +71,10 @@ export async function submitAnswers(id, { answers }) {
 }
 
 export async function getResults(id) {
-  const results = await docsWhere('testResults', 'testId', id);
+  const testSnap = await getDoc(doc(db, 'tests', id));
+  if (!testSnap.exists()) throw new Error('시험을 찾을 수 없습니다.');
+  const test = { id: testSnap.id, ...testSnap.data() };
+  const results = await resultsForTest(test.classId, id);
   const rows = [];
   for (const result of results) {
     const snap = await getDoc(doc(db, 'students', result.studentId));
@@ -85,9 +94,11 @@ export async function getClassActiveTest() {
 
 export async function getClassTestHistory(classId) {
   const tests = (await docsWhere('tests', 'classId', classId)).filter(test => test.status === 'finished').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+  const classResults = await docsWhere('testResults', 'classId', classId);
   const result = [];
   for (const test of tests) {
-    const [book, rows] = await Promise.all([getDoc(doc(db, 'wordbooks', test.wordBookId)), docsWhere('testResults', 'testId', test.id)]);
+    const book = await getDoc(doc(db, 'wordbooks', test.wordBookId));
+    const rows = classResults.filter(row => row.testId === test.id);
     const scores = rows.map(row => row.score);
     result.push({ id: test.id, wordBookTitle: book.data()?.title || '삭제된 단어장', createdAt: test.createdAt, studentCount: rows.length, avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : 0, total: rows[0]?.total || 0 });
   }
