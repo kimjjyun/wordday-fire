@@ -76,7 +76,7 @@ export default function QuizPage() {
 
   if (done) return (
     <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto">
-      <div className="px-5 pt-4 pb-3 flex items-center gap-4">
+      <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
         <button
           onClick={() => navigate('/student')}
           className="text-black font-bold text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
@@ -130,7 +130,7 @@ export default function QuizPage() {
   return (
     <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto">
       {/* 헤더 */}
-      <div className="px-5 pt-4 pb-3 flex items-center gap-4">
+      <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
         <button
           onClick={() => navigate('/student')}
           className="text-black font-bold text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"

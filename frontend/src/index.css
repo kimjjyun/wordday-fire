@@ -39,3 +39,9 @@
   animation: loadingDot 0.9s ease-in-out infinite;
   will-change: transform, opacity;
 }
+
+/* PWA 상태 표시줄과 상단 버튼이 겹치지 않도록 기기 안전 영역 확보 */
+.safe-area-top {
+  padding-top: calc(1rem + constant(safe-area-inset-top));
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+}

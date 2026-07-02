@@ -5,7 +5,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-white px-6">
 
       {/* 헤더 */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur pt-4 pb-3 flex items-center gap-3 border-b border-gray-100">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur safe-area-top pb-3 flex items-center gap-3 border-b border-gray-100">
         <Link to="/solo" className="text-[12px] text-gray-300 hover:text-black transition font-medium">← 돌아가기</Link>
         <span className="text-[13px] font-bold text-black tracking-tight">개인정보처리방침</span>
       </div>

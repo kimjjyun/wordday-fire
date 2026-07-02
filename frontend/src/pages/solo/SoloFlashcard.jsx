@@ -54,7 +54,7 @@ export default function SoloFlashcard() {
   return (
     <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto">
       {/* 헤더 */}
-      <div className="px-5 pt-4 pb-3 flex items-center gap-4">
+      <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
         <button onClick={() => navigate('/solo')} className="text-black font-bold text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition">←</button>
         <div className="flex-1">
           <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden">

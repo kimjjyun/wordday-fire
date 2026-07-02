@@ -204,7 +204,7 @@ export default function TestActivePage() {
       )}
 
       {/* 상단 헤더: 나가기 + 진행바 + 점수 */}
-      <div className="px-5 pt-4 pb-3">
+      <div className="px-5 safe-area-top pb-3">
         <div className="flex items-center gap-3 mb-2">
           <button
             onClick={() => setShowExitConfirm(true)}

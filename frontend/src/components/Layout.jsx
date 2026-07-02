@@ -7,7 +7,7 @@ export default function Layout({ title, back = true, children }) {
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-white">
-      <header className="sticky top-0 z-10 bg-white/95 backdrop-blur px-5 pt-4 pb-3 flex items-center gap-3">
+      <header className="sticky top-0 z-10 bg-white/95 backdrop-blur px-5 safe-area-top pb-3 flex items-center gap-3">
         {back && (
           <button
             onClick={() => navigate(-1)}

@@ -45,7 +45,7 @@ export default function SoloHome() {
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-white">
       {/* 헤더 */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-5 pt-4 pb-3 flex items-center">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-5 safe-area-top pb-3 flex items-center">
         <h1 className="flex-1 font-black text-[15px] tracking-tight">WORDDAY</h1>
         <button
           onClick={() => { exit(); navigate('/login'); }}
