@@ -47,9 +47,7 @@
 }
 
 /* iOS PWA가 안전 영역을 0으로 반환해도 상태 표시줄 아래에서 헤더 시작 */
-@media (display-mode: standalone) {
-  .safe-area-top {
-    padding-top: 3.75rem;
-    padding-top: max(3.75rem, calc(1rem + env(safe-area-inset-top, 0px)));
-  }
+html.wordday-standalone .safe-area-top,
+body.wordday-standalone .safe-area-top {
+  padding-top: max(3.75rem, calc(1rem + env(safe-area-inset-top, 0px))) !important;
 }
