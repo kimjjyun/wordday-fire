@@ -1,8 +1,8 @@
-import { addDoc, arrayUnion, collection, doc, getDoc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { clean, docsWhere, now, response } from './helpers';
-import { bulkAddWords } from './wordbooks';
+import { bulkAddWords, deleteWordBook } from './wordbooks';
 
 const currentUser = () => useAuthStore.getState().user;
 const roomCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -134,6 +134,41 @@ export async function getClassTestHistory(classId) {
     result.push({ id: test.id, wordBookTitle: book.data()?.title || '삭제된 단어장', createdAt: test.createdAt, studentCount: rows.length, avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : 0, total: rows[0]?.total || 0 });
   }
   return response(result);
+}
+
+export async function deleteFinishedTests(classId, ids) {
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length) return response({ deleted: 0 });
+
+  const tests = [];
+  for (const id of uniqueIds) {
+    const snap = await getDoc(doc(db, 'tests', id));
+    if (!snap.exists()) continue;
+    const test = { id: snap.id, ...snap.data() };
+    if (test.classId !== classId || test.status !== 'finished') {
+      throw new Error('종료된 테스트만 삭제할 수 있습니다.');
+    }
+    tests.push(test);
+  }
+
+  const classResults = await docsWhere('testResults', 'classId', classId);
+  const selectedIds = new Set(tests.map(test => test.id));
+  await Promise.all(
+    classResults
+      .filter(result => selectedIds.has(result.testId))
+      .map(result => deleteDoc(doc(db, 'testResults', result.id))),
+  );
+  await Promise.all(tests.map(test => deleteDoc(doc(db, 'tests', test.id))));
+
+  // DAY 시험을 만들 때 생성된 비활성 임시 단어장은 더 이상 참조되지 않으면 함께 정리한다.
+  for (const wordBookId of new Set(tests.map(test => test.wordBookId))) {
+    const bookSnap = await getDoc(doc(db, 'wordbooks', wordBookId));
+    if (!bookSnap.exists() || bookSnap.data().isActive !== false) continue;
+    const remainingTests = await docsWhere('tests', 'wordBookId', wordBookId);
+    if (remainingTests.length === 0) await deleteWordBook(wordBookId);
+  }
+
+  return response({ deleted: tests.length });
 }
 
 export async function getClassOpenTests(classId) {

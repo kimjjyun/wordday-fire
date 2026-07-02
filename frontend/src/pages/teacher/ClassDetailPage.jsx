@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getClass, bulkCreateStudents, deleteStudent, updateStudent } from '../../api/classes';
 import { createWordBook, bulkAddWords, deleteWordBook } from '../../api/wordbooks';
-import { createTest, createTestWithWords, getClassOpenTests, getClassTestHistory } from '../../api/tests';
+import { createTest, createTestWithWords, deleteFinishedTests, getClassOpenTests, getClassTestHistory } from '../../api/tests';
 import { RECOMMENDED_WORDS, WORDS_PER_DAY } from '../../data/recommendedWords';
 import Layout from '../../components/Layout';
 import LoadingDots from '../../components/LoadingDots';
@@ -19,6 +19,12 @@ function downloadStudentTemplate() {
 
 const inputCls = 'w-full border border-gray-200 rounded-2xl px-4 py-3 text-[14px] font-medium outline-none focus:border-black transition placeholder:text-gray-300 placeholder:font-normal bg-white';
 const smallInputCls = 'border border-gray-200 rounded-xl px-2.5 py-2 text-[13px] font-medium outline-none focus:border-black bg-white placeholder:text-gray-200';
+
+function formatTestDateTime(value) {
+  return new Date(value).toLocaleString('ko-KR', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
 
 export default function ClassDetailPage() {
   const { id } = useParams();
@@ -44,6 +50,10 @@ export default function ClassDetailPage() {
   const [csvError,     setCsvError]     = useState('');
   const [testHistory,  setTestHistory]  = useState([]);
   const [openTests,    setOpenTests]    = useState([]);
+  const [selectedTestIds, setSelectedTestIds] = useState(new Set());
+  const [confirmTestDelete, setConfirmTestDelete] = useState(false);
+  const [testDeleteLoading, setTestDeleteLoading] = useState(false);
+  const [testDeleteError, setTestDeleteError] = useState('');
   const [showInvite,   setShowInvite]   = useState(false);
   const [inviteQr,     setInviteQr]     = useState('');
 
@@ -124,6 +134,32 @@ export default function ClassDetailPage() {
     getClassTestHistory(id).then(r => setTestHistory(r.data)).catch(() => {});
     getClassOpenTests(id).then(r => setOpenTests(r.data)).catch(() => {});
   }, [id]);
+
+  const toggleTestSelection = (testId) => {
+    setSelectedTestIds(previous => {
+      const next = new Set(previous);
+      next.has(testId) ? next.delete(testId) : next.add(testId);
+      return next;
+    });
+    setConfirmTestDelete(false);
+    setTestDeleteError('');
+  };
+
+  const handleDeleteTests = async () => {
+    setTestDeleteLoading(true);
+    setTestDeleteError('');
+    try {
+      await deleteFinishedTests(id, [...selectedTestIds]);
+      const history = await getClassTestHistory(id);
+      setTestHistory(history.data);
+      setSelectedTestIds(new Set());
+      setConfirmTestDelete(false);
+    } catch (error) {
+      setTestDeleteError(error?.message || '테스트 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setTestDeleteLoading(false);
+    }
+  };
 
   const handleAddWordBook = async () => {
     if (!wbForm.title || !wbForm.week) return;
@@ -848,7 +884,7 @@ export default function ClassDetailPage() {
                     <div className="min-w-0">
                       <p className="font-bold text-[14px] tracking-tight text-black truncate">{test.wordBookTitle}</p>
                       <p className="text-[11px] font-medium text-gray-400 mt-1">
-                        {test.status === 'waiting' ? '입장 대기 중' : '시험 진행 중'} · 학생 {test.studentCount}명
+                        {formatTestDateTime(test.createdAt)} · {test.status === 'waiting' ? '입장 대기 중' : '시험 진행 중'} · 학생 {test.studentCount}명
                       </p>
                     </div>
                     <div className="text-right shrink-0 ml-3">
@@ -867,35 +903,94 @@ export default function ClassDetailPage() {
           <>
             <div className="h-px bg-gray-100 mt-6 mb-6" />
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-3">Recent Tests</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">Recent Tests</p>
+                <button
+                  onClick={() => {
+                    const allSelected = selectedTestIds.size === testHistory.length;
+                    setSelectedTestIds(allSelected ? new Set() : new Set(testHistory.map(test => test.id)));
+                    setConfirmTestDelete(false);
+                    setTestDeleteError('');
+                  }}
+                  className="text-[11px] font-bold text-gray-400 hover:text-black transition"
+                >{selectedTestIds.size === testHistory.length ? '전체 해제' : '전체 선택'}</button>
+              </div>
               <div className="space-y-0">
                 {testHistory.map((t, i) => {
-                  const date = new Date(t.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+                  const isSelected = selectedTestIds.has(t.id);
                   return (
                     <div key={t.id}>
-                      <button
-                        className="w-full flex items-center justify-between py-3.5 text-left active:bg-gray-50 rounded-xl transition"
-                        onClick={() => navigate(`/teacher/test/${t.id}/results`)}
-                      >
-                        <div>
-                          <p className="font-bold text-[14px] tracking-tight text-black">{t.wordBookTitle}</p>
-                          <p className="text-[11px] font-medium text-gray-300 mt-0.5">
-                            {date} · {t.studentCount}명 참여
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="font-black text-[15px] text-black">{t.avg}<span className="text-[11px] text-gray-300 font-medium">/{t.total}</span></p>
-                            <p className="text-[10px] text-gray-300 font-medium">평균</p>
+                      <div className="flex items-center gap-3 py-1">
+                        <button
+                          onClick={() => toggleTestSelection(t.id)}
+                          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${
+                            isSelected ? 'bg-black border-black' : 'border-gray-200 hover:border-gray-400'
+                          }`}
+                          aria-label={`${t.wordBookTitle} 선택`}
+                        >
+                          {isSelected && (
+                            <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                              <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          className="flex-1 flex items-center justify-between py-3.5 text-left active:bg-gray-50 rounded-xl transition min-w-0"
+                          onClick={() => navigate(`/teacher/test/${t.id}/results`)}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-bold text-[14px] tracking-tight text-black truncate">{t.wordBookTitle}</p>
+                            <p className="text-[11px] font-medium text-gray-300 mt-0.5">
+                              {formatTestDateTime(t.createdAt)} · {t.studentCount}명 참여
+                            </p>
                           </div>
-                          <span className="text-gray-200 text-lg">›</span>
-                        </div>
-                      </button>
+                          <div className="flex items-center gap-3 ml-3">
+                            <div className="text-right">
+                              <p className="font-black text-[15px] text-black">{t.avg}<span className="text-[11px] text-gray-300 font-medium">/{t.total}</span></p>
+                              <p className="text-[10px] text-gray-300 font-medium">평균</p>
+                            </div>
+                            <span className="text-gray-200 text-lg">›</span>
+                          </div>
+                        </button>
+                      </div>
                       {i < testHistory.length - 1 && <div className="h-px bg-gray-50" />}
                     </div>
                   );
                 })}
               </div>
+              {selectedTestIds.size > 0 && (
+                <div className="mt-3">
+                  {testDeleteError && <p className="text-[11px] text-black text-center mb-2">{testDeleteError}</p>}
+                  {!confirmTestDelete ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setConfirmTestDelete(true)}
+                        className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full active:scale-[0.97] transition"
+                      >삭제 ({selectedTestIds.size}개)</button>
+                      <button
+                        onClick={() => setSelectedTestIds(new Set())}
+                        className="px-4 text-[13px] font-bold text-gray-300 hover:text-black transition"
+                      >취소</button>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-[12px] font-bold text-center mb-2">선택한 테스트와 학생 결과를 삭제할까요?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDeleteTests}
+                          disabled={testDeleteLoading}
+                          className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40"
+                        >{testDeleteLoading ? <LoadingDots label="삭제 중" /> : '영구 삭제'}</button>
+                        <button
+                          onClick={() => setConfirmTestDelete(false)}
+                          disabled={testDeleteLoading}
+                          className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40"
+                        >취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
