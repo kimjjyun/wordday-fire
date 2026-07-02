@@ -37,6 +37,15 @@ export default function TestActivePage() {
   const wordsRef     = useRef([]);
   const submittedRef = useRef(false);
   const pendingSaveRef = useRef(Promise.resolve());
+  const rememberRoomCode = (roomCode, testId) => {
+    if (roomCode) sessionStorage.setItem('test_room_code', roomCode);
+    if (testId) sessionStorage.setItem('test_id', testId);
+  };
+  const clearRoomSession = () => {
+    sessionStorage.removeItem('test_room_code');
+    sessionStorage.removeItem('test_words');
+    sessionStorage.removeItem('test_id');
+  };
 
   useEffect(() => {
     let stopped = false;
@@ -51,6 +60,7 @@ export default function TestActivePage() {
         const { data } = await getLiveTest(testId);
         if (stopped) return;
         if (data.status === 'finished') {
+          clearRoomSession();
           sessionStorage.setItem('test_result', JSON.stringify({ avg: data.avg, topScore: data.topScore, total: data.total }));
           navigate('/student/test/result', { replace: true });
           return;
@@ -74,6 +84,7 @@ export default function TestActivePage() {
 
         wordsRef.current = parsed;
         answersRef.current = savedAnswers;
+        rememberRoomCode(data.roomCode, testId);
         submittedRef.current = alreadySubmitted;
         setWords(parsed);
         setAnswers(savedAnswers);
@@ -93,6 +104,7 @@ export default function TestActivePage() {
       try {
         const { data } = await getLiveTest(testId);
         if (!stopped && data.status === 'finished') {
+          clearRoomSession();
           sessionStorage.setItem('test_result', JSON.stringify({ avg: data.avg, topScore: data.topScore, total: data.total }));
           navigate('/student/test/result');
         }
@@ -128,6 +140,7 @@ export default function TestActivePage() {
     setExitError('');
     try {
       await saveTestProgress(sessionStorage.getItem('test_id'), { answers: answersRef.current });
+      rememberRoomCode(sessionStorage.getItem('test_room_code'), sessionStorage.getItem('test_id'));
       navigate('/student');
     } catch {
       setExitError('진행 상황을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');

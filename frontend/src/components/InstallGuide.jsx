@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { isStandaloneDisplayMode } from '../utils/displayMode';
 
 const dismissedKey = 'wordday-install-guide-dismissed';
-const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isInstalled = () => isStandaloneDisplayMode();
 
 export default function InstallGuide() {
   const [mode, setMode] = useState(null);

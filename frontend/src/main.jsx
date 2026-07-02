@@ -3,12 +3,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
+import { isStandaloneDisplayMode } from './utils/displayMode';
 
-const isStandalonePwa =
-  window.matchMedia('(display-mode: standalone)').matches ||
-  window.navigator.standalone === true;
-
-if (isStandalonePwa) {
+if (isStandaloneDisplayMode()) {
   document.documentElement.classList.add('wordday-standalone');
 }
 ReactDOM.createRoot(document.getElementById('root')).render(

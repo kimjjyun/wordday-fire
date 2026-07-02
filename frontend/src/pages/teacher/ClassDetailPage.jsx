@@ -110,8 +110,9 @@ export default function ClassDetailPage() {
       }
       setShowTogether(false);
       navigate(`/teacher/test/${testRes.data.id}/run`, { state: { targetStudentIds: [...togetherStudentIds] } });
-    } catch {
-      setTogetherError('시작 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } catch (error) {
+      console.error(error);
+      setTogetherError(error?.response?.data?.error || error?.message || '시작 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setTogetherLoading(false);
     }

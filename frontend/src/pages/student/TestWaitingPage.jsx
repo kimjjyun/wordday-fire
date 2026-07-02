@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { joinTest, getLiveTest } from '../../api/tests';
@@ -10,6 +10,12 @@ export default function TestWaitingPage() {
   const [joined, setJoined] = useState(false);
   const [error,  setError]  = useState('');
   const [testId, setTestId] = useState('');
+  const autoJoinAttemptedRef = useRef(false);
+
+  const rememberTestSession = (roomCode, id) => {
+    if (roomCode) sessionStorage.setItem('test_room_code', roomCode);
+    if (id) sessionStorage.setItem('test_id', id);
+  };
 
   useEffect(() => {
     if (!joined || !testId) return;
@@ -19,7 +25,7 @@ export default function TestWaitingPage() {
         const { data } = await getLiveTest(testId);
         if (!stopped && data.status === 'active') {
           sessionStorage.setItem('test_words', JSON.stringify(data.words));
-          sessionStorage.setItem('test_id', testId);
+          rememberTestSession(data.roomCode, testId);
           navigate('/student/test/active');
         }
       } catch { /* 다음 주기에 재시도 */ }
@@ -35,10 +41,11 @@ export default function TestWaitingPage() {
     try {
       const { data } = await joinTest(roomCode);
       setTestId(data.testId);
+      rememberTestSession(data.roomCode, data.testId);
       if (data.status === 'active') {
         const { data: liveTest } = await getLiveTest(data.testId);
         sessionStorage.setItem('test_words', JSON.stringify(liveTest.words));
-        sessionStorage.setItem('test_id', data.testId);
+        rememberTestSession(liveTest.roomCode, data.testId);
         navigate('/student/test/active');
         return;
       }
@@ -50,10 +57,21 @@ export default function TestWaitingPage() {
 
   // 초대 모달에서 자동 입장
   useEffect(() => {
+    if (autoJoinAttemptedRef.current) return;
+
     if (location.state?.autoJoin && location.state?.roomCode) {
+      autoJoinAttemptedRef.current = true;
       doJoin(location.state.roomCode);
+      return;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const savedRoomCode = sessionStorage.getItem('test_room_code');
+    const savedTestId = sessionStorage.getItem('test_id');
+    if (savedRoomCode && savedTestId && !joined && !code) {
+      autoJoinAttemptedRef.current = true;
+      doJoin(savedRoomCode);
+    }
+  }, [code, doJoin, joined, location.state]);
 
   const handleJoin = () => doJoin(code.trim().toUpperCase());
 
