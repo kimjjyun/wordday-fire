@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLiveTest, submitAnswers } from '../../api/tests';
+import { getLiveTest, saveTestProgress, submitAnswers } from '../../api/tests';
 import { RECOMMENDED_WORDS } from '../../data/recommendedWords';
 
 // 1000개+ 풀에서 이미 사용한 선택지를 피해 3개 오답 선택
@@ -30,23 +30,66 @@ export default function TestActivePage() {
   const [submitted, setSubmitted]       = useState(false);
   const [advancing, setAdvancing]       = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [exiting, setExiting]             = useState(false);
+  const [exitError, setExitError]         = useState('');
 
   const answersRef   = useRef({});
   const wordsRef     = useRef([]);
   const submittedRef = useRef(false);
+  const pendingSaveRef = useRef(Promise.resolve());
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('test_words');
-    const raw = stored ? JSON.parse(stored) : [];
-    // 1000개 풀에서 문제별 선택지 생성 (세션 내 중복 최소화)
-    const usedSet = new Set();
-    const parsed = raw.map(w => ({ ...w, options: buildOptions(w, usedSet) }));
-    wordsRef.current = parsed;
-    setWords(parsed);
-
     let stopped = false;
     const testId = sessionStorage.getItem('test_id');
-    const check = async () => {
+
+    const initialize = async () => {
+      if (!testId) {
+        navigate('/student', { replace: true });
+        return;
+      }
+      try {
+        const { data } = await getLiveTest(testId);
+        if (stopped) return;
+        if (data.status === 'finished') {
+          sessionStorage.setItem('test_result', JSON.stringify({ avg: data.avg, topScore: data.topScore, total: data.total }));
+          navigate('/student/test/result', { replace: true });
+          return;
+        }
+
+        const raw = data.words?.length
+          ? data.words
+          : JSON.parse(sessionStorage.getItem('test_words') || '[]');
+        sessionStorage.setItem('test_words', JSON.stringify(raw));
+        const usedSet = new Set();
+        const parsed = raw.map(w => ({ ...w, options: buildOptions(w, usedSet) }));
+        const savedAnswers = data.myResult?.answers || {};
+        const savedResults = Object.fromEntries(
+          parsed.filter(w => savedAnswers[w.id]).map(w => [w.id, savedAnswers[w.id] === w.answer ? 'correct' : 'wrong'])
+        );
+        const savedScore = parsed.filter(w => savedAnswers[w.id] === w.answer).length;
+        const answered = Object.keys(savedAnswers).length;
+        const alreadySubmitted = data.myResult?.status === 'submitted'
+          || (!data.myResult?.status && parsed.length > 0 && answered >= parsed.length);
+        const nextIndex = parsed.findIndex(w => !savedAnswers[w.id]);
+
+        wordsRef.current = parsed;
+        answersRef.current = savedAnswers;
+        submittedRef.current = alreadySubmitted;
+        setWords(parsed);
+        setAnswers(savedAnswers);
+        setResults(savedResults);
+        setScore(savedScore);
+        setSubmitted(alreadySubmitted);
+        setCurrentIndex(nextIndex >= 0 ? nextIndex : Math.max(parsed.length - 1, 0));
+        if (alreadySubmitted) {
+          sessionStorage.setItem('my_score', JSON.stringify({ score: savedScore, total: parsed.length, answered }));
+        }
+      } catch {
+        navigate('/student', { replace: true });
+      }
+    };
+
+    const checkFinished = async () => {
       try {
         const { data } = await getLiveTest(testId);
         if (!stopped && data.status === 'finished') {
@@ -55,17 +98,13 @@ export default function TestActivePage() {
         }
       } catch { /* 다음 주기에 재시도 */ }
     };
-    const timer = setInterval(check, 2000);
+
+    initialize();
+    const timer = setInterval(checkFinished, 2000);
     return () => { stopped = true; clearInterval(timer); };
   }, [navigate]);
 
-  const handleExitConfirm = () => {
-    // 현재까지 답안 제출 후 홈으로
-    doSubmit();
-    navigate('/student');
-  };
-
-  const doSubmit = () => {
+  const doSubmit = async () => {
     if (submittedRef.current) return;
     submittedRef.current = true;
     const ans = answersRef.current;
@@ -74,9 +113,26 @@ export default function TestActivePage() {
     const score = allWords.filter(w => ans[w.id] === w.answer).length;
     sessionStorage.setItem('my_score', JSON.stringify({ score, total: allWords.length, answered }));
     const testId = sessionStorage.getItem('test_id');
+    await pendingSaveRef.current;
     submitAnswers(testId, { answers: ans })
       .then(() => setSubmitted(true))
       .catch(() => { submittedRef.current = false; });
+  };
+
+  const handleExitConfirm = async () => {
+    if (submittedRef.current) {
+      navigate('/student');
+      return;
+    }
+    setExiting(true);
+    setExitError('');
+    try {
+      await saveTestProgress(sessionStorage.getItem('test_id'), { answers: answersRef.current });
+      navigate('/student');
+    } catch {
+      setExitError('진행 상황을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      setExiting(false);
+    }
   };
 
   const handleSelect = (word, option) => {
@@ -85,6 +141,10 @@ export default function TestActivePage() {
     const isCorrect = option === word.answer;
     const newAnswers = { ...answersRef.current, [word.id]: option };
     answersRef.current = newAnswers;
+    pendingSaveRef.current = saveTestProgress(
+      sessionStorage.getItem('test_id'),
+      { answers: newAnswers }
+    ).catch(() => {});
 
     setAnswers(newAnswers);
     setResults(r => ({ ...r, [word.id]: isCorrect ? 'correct' : 'wrong' }));
@@ -125,13 +185,15 @@ export default function TestActivePage() {
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6" />
             <h2 className="text-2xl font-black tracking-tighter mb-2">테스트를 나가시겠습니까?</h2>
             <p className="text-[13px] text-gray-400 font-medium mb-8">
-              현재까지 풀었던 답이 제출됩니다.
+              현재까지 푼 내용이 저장되며, 진행 중에는 다시 들어올 수 있습니다.
             </p>
+            {exitError && <p className="text-[12px] font-medium text-center text-black mb-3">{exitError}</p>}
             <div className="space-y-2.5">
               <button
                 onClick={handleExitConfirm}
-                className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition"
-              >나가기</button>
+                disabled={exiting}
+                className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition disabled:opacity-50"
+              >{exiting ? '저장 중...' : '나가기'}</button>
               <button
                 onClick={() => setShowExitConfirm(false)}
                 className="w-full border border-gray-200 text-gray-600 font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition hover:border-gray-400"

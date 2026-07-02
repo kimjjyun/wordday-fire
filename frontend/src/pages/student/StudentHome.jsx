@@ -44,6 +44,7 @@ export default function StudentHome() {
   const [loading,    setLoading]    = useState(true);
   const [showAll,    setShowAll]    = useState(false);
   const [invite,     setInvite]     = useState(null); // { testId, roomCode }
+  const [liveTest,   setLiveTest]   = useState(null); // 대기 또는 진행 중인 시험
 
   const now     = new Date();
   const dayEn   = DAYS_EN[now.getDay()];
@@ -60,8 +61,12 @@ export default function StudentHome() {
   useEffect(() => {
     if (!user?.classId) return;
     return subscribeClassActiveTest(data => {
+      setLiveTest(data);
       setInvite(data?.status === 'waiting' ? { testId: data.id, roomCode: data.roomCode } : null);
-    }, () => setInvite(null));
+    }, () => {
+      setLiveTest(null);
+      setInvite(null);
+    });
   }, [user?.classId]);
 
   const remaining = Math.max(0, words.length - PREVIEW);
@@ -102,6 +107,20 @@ export default function StudentHome() {
             </div>
           </div>
         </div>
+      )}
+
+      {liveTest?.status === 'active' && (
+        <button
+          onClick={() => navigate('/student/test/wait', { state: { autoJoin: true, roomCode: liveTest.roomCode } })}
+          className="w-full mb-5 bg-black text-white rounded-2xl px-5 py-4 flex items-center justify-between text-left active:scale-[0.98] transition"
+        >
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mb-1">Test in progress</p>
+            <p className="text-[16px] font-black tracking-tight">진행 중인 시험으로 돌아가기</p>
+            <p className="text-[11px] text-white/60 font-medium mt-1">방 코드 {liveTest.roomCode}</p>
+          </div>
+          <span className="text-2xl text-white/70">›</span>
+        </button>
       )}
 
       <div className="pb-8">

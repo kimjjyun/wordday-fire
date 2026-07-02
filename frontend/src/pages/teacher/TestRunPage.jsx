@@ -4,7 +4,7 @@ import { startTest, finishTest, getLiveTest } from '../../api/tests';
 import Layout from '../../components/Layout';
 import Button from '../../components/Button';
 
-function CopyableCode({ code }) {
+function CopyableCode({ code, compact = false }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -15,7 +15,7 @@ function CopyableCode({ code }) {
     <div className="flex flex-col items-center gap-2">
       <p
         onClick={handleCopy}
-        className="text-6xl font-black text-black tracking-widest cursor-pointer select-all"
+        className={`${compact ? 'text-4xl' : 'text-6xl'} font-black text-black tracking-widest cursor-pointer select-all`}
       >{code}</p>
       <span className="text-[11px] font-bold text-gray-300 tracking-wider">
         {copied ? '복사됨' : '탭하면 복사'}
@@ -28,6 +28,7 @@ export default function TestRunPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState('waiting');
+  const [classId, setClassId] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [studentCount, setStudentCount] = useState(0);
   const [submittedCount, setSubmittedCount] = useState(0);
@@ -42,6 +43,7 @@ export default function TestRunPage() {
         if (stopped) return;
         setLoadError('');
         setRoomCode(data.roomCode);
+        setClassId(data.classId);
         setStatus(data.status);
         setStudentCount(data.studentCount);
         setSubmittedCount(data.submittedCount);
@@ -86,6 +88,11 @@ export default function TestRunPage() {
 
         {status === 'active' && (
           <>
+            <div className="border-2 border-black rounded-2xl p-5 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-3">Room Code · 진행 중</p>
+              <CopyableCode code={roomCode} compact />
+            </div>
+
             {/* 진행 현황 */}
             <div className="flex gap-3">
               <div className="flex-1 bg-gray-50 rounded-2xl py-4 text-center">
@@ -121,7 +128,7 @@ export default function TestRunPage() {
 
             <Button variant="danger" onClick={handleFinish}>테스트 종료 및 결과 보기</Button>
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate(classId ? `/teacher/classes/${classId}` : '/teacher')}
               className="w-full border border-gray-200 text-gray-500 font-bold py-3.5 rounded-full text-[14px] tracking-tight hover:border-gray-400 hover:text-black transition active:scale-[0.97]"
             >나가기 (테스트는 계속 진행)</button>
           </>

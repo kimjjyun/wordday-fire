@@ -35,11 +35,18 @@ export default function TestWaitingPage() {
     try {
       const { data } = await joinTest(roomCode);
       setTestId(data.testId);
+      if (data.status === 'active') {
+        const { data: liveTest } = await getLiveTest(data.testId);
+        sessionStorage.setItem('test_words', JSON.stringify(liveTest.words));
+        sessionStorage.setItem('test_id', data.testId);
+        navigate('/student/test/active');
+        return;
+      }
       setJoined(true);
     } catch (err) {
       setError(err.response?.data?.error || '시험에 입장할 수 없습니다.');
     }
-  }, []);
+  }, [navigate]);
 
   // 초대 모달에서 자동 입장
   useEffect(() => {

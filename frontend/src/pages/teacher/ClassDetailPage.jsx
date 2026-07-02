@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getClass, bulkCreateStudents, deleteStudent, updateStudent } from '../../api/classes';
 import { createWordBook, bulkAddWords, deleteWordBook } from '../../api/wordbooks';
-import { createTest, createTestWithWords, getClassTestHistory } from '../../api/tests';
+import { createTest, createTestWithWords, getClassOpenTests, getClassTestHistory } from '../../api/tests';
 import { RECOMMENDED_WORDS, WORDS_PER_DAY } from '../../data/recommendedWords';
 import Layout from '../../components/Layout';
 import LoadingDots from '../../components/LoadingDots';
@@ -43,6 +43,7 @@ export default function ClassDetailPage() {
   const [csvResult,    setCsvResult]    = useState(null);
   const [csvError,     setCsvError]     = useState('');
   const [testHistory,  setTestHistory]  = useState([]);
+  const [openTests,    setOpenTests]    = useState([]);
   const [showInvite,   setShowInvite]   = useState(false);
   const [inviteQr,     setInviteQr]     = useState('');
 
@@ -120,6 +121,7 @@ export default function ClassDetailPage() {
   useEffect(() => { load(); }, [id]);
   useEffect(() => {
     getClassTestHistory(id).then(r => setTestHistory(r.data)).catch(() => {});
+    getClassOpenTests(id).then(r => setOpenTests(r.data)).catch(() => {});
   }, [id]);
 
   const handleAddWordBook = async () => {
@@ -828,6 +830,36 @@ export default function ClassDetailPage() {
             </div>
           )}
         </div>
+
+        {/* ── 진행 중 시험 ───────────────────────────── */}
+        {openTests.length > 0 && (
+          <>
+            <div className="h-px bg-gray-100 mt-6 mb-6" />
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-3">Open Tests</p>
+              <div className="space-y-2">
+                {openTests.map(test => (
+                  <button
+                    key={test.id}
+                    onClick={() => navigate(`/teacher/test/${test.id}/run`)}
+                    className="w-full border-2 border-black rounded-2xl px-4 py-3.5 flex items-center justify-between text-left active:scale-[0.98] transition"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-[14px] tracking-tight text-black truncate">{test.wordBookTitle}</p>
+                      <p className="text-[11px] font-medium text-gray-400 mt-1">
+                        {test.status === 'waiting' ? '입장 대기 중' : '시험 진행 중'} · 학생 {test.studentCount}명
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-300">Room</p>
+                      <p className="text-[18px] font-black tracking-[0.16em] text-black">{test.roomCode}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* ── 최근 시험 기록 ─────────────────────────── */}
         {testHistory.length > 0 && (
