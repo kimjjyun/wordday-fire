@@ -13,7 +13,7 @@ async function freshAnonymousUser() {
 
 export async function teacherRegister({ email: username, password, name, schoolName, securityQuestion, securityAnswer }) {
   try {
-    if (clean(password).length < 4) throw new Error('비밀번호는 4자 이상 입력해주세요.');
+    if (clean(password).length < 8) throw new Error('교사 비밀번호는 8자 이상 입력해주세요.');
     if (!clean(schoolName)) throw new Error('학교명을 입력해주세요.');
     const user = await freshAnonymousUser();
     const key = await teacherKey(username);
@@ -65,6 +65,7 @@ export async function getSecurityQuestion(username) {
 
 export async function resetTeacherPassword({ username, answer, newPassword }) {
   try {
+    if (clean(newPassword).length < 8) throw new Error('새 비밀번호는 8자 이상 입력해주세요.');
     if (!auth.currentUser) await signInAnonymously(auth);
     const key = await teacherKey(username);
     const currentAnswerProof = await answerProof(answer);

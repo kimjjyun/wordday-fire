@@ -1,7 +1,8 @@
 import { addDoc, collection, deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
-import { clean, docsWhere, now, passwordProof, response, studentLoginKey } from './helpers';
+import { RECOMMENDED_WORDS } from '../data/recommendedWords';
+import { clean, countWhere, docsWhere, now, passwordProof, response, studentLoginKey } from './helpers';
 
 const ownedClass = async id => {
   const snap = await getDoc(doc(db, 'classes', id));
@@ -18,7 +19,7 @@ export async function createClass({ name }) {
 
 export async function getClasses() {
   const classes = await docsWhere('classes', 'teacherId', useAuthStore.getState().user.id);
-  const result = await Promise.all(classes.map(async cls => ({ ...cls, studentCount: (await docsWhere('students', 'classId', cls.id)).length })));
+  const result = await Promise.all(classes.map(async cls => ({ ...cls, studentCount: await countWhere('students', 'classId', cls.id) })));
   return response(result.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
 }
 
@@ -26,7 +27,13 @@ export async function getClass(id) {
   const cls = await ownedClass(id);
   const students = await docsWhere('students', 'classId', id);
   const wordBooks = (await docsWhere('wordbooks', 'classId', id)).filter(item => item.isActive !== false);
-  const withCounts = await Promise.all(wordBooks.map(async item => ({ ...item, wordCount: (await docsWhere('words', 'wordBookId', item.id)).length })));
+  const withCounts = await Promise.all(wordBooks.map(async item => {
+    const customCount = await countWhere('words', 'wordBookId', item.id);
+    const recommendedCount = item.usesRecommendedWords
+      ? RECOMMENDED_WORDS.length - (item.excludedRecommendedWordNumbers?.length || 0)
+      : 0;
+    return { ...item, wordCount: recommendedCount + customCount };
+  }));
   return response({ ...cls, students: students.sort((a, b) => a.studentCode.localeCompare(b.studentCode, undefined, { numeric: true })), wordBooks: withCounts });
 }
 

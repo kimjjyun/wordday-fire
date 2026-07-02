@@ -109,7 +109,7 @@ export default function LoginPage() {
           {forgotQuestion && <>
             <p className="bg-gray-50 rounded-2xl px-4 py-3 text-[14px] font-bold">{forgotQuestion}</p>
             <input className={inputCls} placeholder="보안 질문 답변" value={forgotAnswer} onChange={event => setForgotAnswer(event.target.value)} required />
-            <input className={inputCls} type="password" minLength={4} placeholder="새 비밀번호 (4자 이상)" value={newPassword} onChange={event => setNewPassword(event.target.value)} required />
+            <input className={inputCls} type="password" minLength={8} placeholder="새 비밀번호 (8자 이상)" value={newPassword} onChange={event => setNewPassword(event.target.value)} required />
           </>}
           {error && <p className="text-[13px] bg-gray-50 rounded-2xl px-4 py-3 text-center">{error}</p>}
           {success && <p className="text-[13px] bg-gray-50 rounded-2xl px-4 py-3 text-center">{success}</p>}
@@ -125,7 +125,7 @@ export default function LoginPage() {
             <input className={inputCls} autoComplete="organization" placeholder="학급 코드" value={form.classCode} onChange={event => setForm(value => ({ ...value, classCode: event.target.value.toUpperCase() }))} required />
             <input className={inputCls} autoComplete="username" placeholder="학번" value={form.studentCode} onChange={set('studentCode')} required />
           </>}
-          <input className={inputCls} type="password" autoComplete={tab === 'register' ? 'new-password' : 'current-password'} minLength={4} placeholder="비밀번호" value={form.password} onChange={set('password')} required />
+          <input className={inputCls} type="password" autoComplete={tab === 'register' ? 'new-password' : 'current-password'} minLength={tab === 'register' ? 8 : 4} placeholder={tab === 'register' ? '비밀번호 (8자 이상)' : '비밀번호'} value={form.password} onChange={set('password')} required />
           {tab === 'student' && (
             <label className="flex items-center gap-2 px-1 text-[11px] font-medium text-gray-400">
               <input type="checkbox" checked={rememberStudent} onChange={event => setRememberStudent(event.target.checked)} />

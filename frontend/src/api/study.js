@@ -2,12 +2,13 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { docsWhere, now, response } from './helpers';
+import { wordsForBook } from './wordbooks';
 
 const currentStudent = () => useAuthStore.getState().user;
 
 async function classWords(classId) {
   const books = (await docsWhere('wordbooks', 'classId', classId)).filter(book => book.isActive !== false);
-  return (await Promise.all(books.map(book => docsWhere('words', 'wordBookId', book.id)))).flat();
+  return (await Promise.all(books.map(book => wordsForBook(book)))).flat();
 }
 
 export async function getHomeData() {

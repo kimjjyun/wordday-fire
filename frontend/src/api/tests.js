@@ -2,7 +2,7 @@ import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, que
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { clean, docsWhere, now, response } from './helpers';
-import { bulkAddWords, deleteWordBook } from './wordbooks';
+import { bulkAddWords, deleteWordBook, loadWordBookWords } from './wordbooks';
 
 const currentUser = () => useAuthStore.getState().user;
 const roomCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -53,7 +53,7 @@ export async function getLiveTest(id) {
   const snap = await getDoc(doc(db, 'tests', id));
   if (!snap.exists()) throw new Error('시험을 찾을 수 없습니다.');
   const test = { id: snap.id, ...snap.data() };
-  const words = (await docsWhere('words', 'wordBookId', test.wordBookId)).sort((a, b) => a.order - b.order);
+  const words = await loadWordBookWords(test.wordBookId);
   const results = currentUser()?.role === 'teacher' ? await resultsForTest(test.classId, test.id) : [];
   let myResult = null;
   if (currentUser()?.role === 'student') {
@@ -85,7 +85,7 @@ export async function submitAnswers(id, { answers }) {
   const student = currentUser();
   const testSnap = await getDoc(doc(db, 'tests', id));
   const test = testSnap.data();
-  const words = await docsWhere('words', 'wordBookId', test.wordBookId);
+  const words = await loadWordBookWords(test.wordBookId);
   const score = words.filter(word => clean(answers[word.id]) === clean(word.korean)).length;
   const answered = Object.values(answers).filter(value => clean(value)).length;
   await setDoc(doc(db, 'testResults', `${id}_${student.id}`), { testId: id, studentId: student.id, classId: student.classId, answers, score, answered, total: words.length, status: 'submitted', submittedAt: now() });

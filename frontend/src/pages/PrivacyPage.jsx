@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">Last updated</p>
-          <p className="text-[15px] font-black text-black tracking-tight">2026. 06. 30</p>
+          <p className="text-[15px] font-black text-black tracking-tight">2026. 07. 02</p>
         </div>
 
         <Section title="서비스 소개">
@@ -24,10 +24,9 @@ export default function PrivacyPage() {
 
         <Section title="수집하는 정보">
           <ul className="space-y-2 list-none">
-            <Li><b>교사 계정:</b> 아이디, 비밀번호(암호화 저장), 이름, 학교명, 보안 질문 및 답변</Li>
-            <Li><b>학생 계정:</b> 학번, 비밀번호(암호화 저장) — 학급 코드를 통해 교사가 등록</Li>
+            <Li><b>교사 계정:</b> 아이디, 비밀번호의 단방향 해시값, 이름, 학교명, 보안 질문 및 답변의 단방향 해시값</Li>
+            <Li><b>학생 계정:</b> 이름, 학번, 비밀번호의 단방향 해시값 — 학급 코드를 통해 교사가 등록</Li>
             <Li><b>학습 데이터:</b> 퀴즈 점수, 테스트 결과</Li>
-            <Li><b>방문 기록:</b> 솔로 모드 익명 방문 횟수 (개인 식별 불가)</Li>
           </ul>
         </Section>
 
@@ -35,40 +34,29 @@ export default function PrivacyPage() {
           <ul className="space-y-2 list-none">
             <Li>교사·학생 로그인 및 학급 관리 기능 제공</Li>
             <Li>퀴즈 결과 조회 및 학습 현황 확인</Li>
-            <Li>서비스 품질 개선을 위한 익명 통계 집계</Li>
           </ul>
         </Section>
 
-        <Section title="광고 서비스 (Google AdSense)">
-          본 서비스는 Google AdSense를 통해 광고를 게재할 수 있습니다.
-          Google은 쿠키를 사용하여 방문자에게 맞춤형 광고를 표시합니다.
-          <ul className="space-y-2 list-none mt-3">
-            <Li>Google의 광고 쿠키 사용으로 인해 방문 기록이 수집될 수 있습니다.</Li>
-            <Li>맞춤 광고를 원하지 않는 경우 <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-black underline">Google 광고 설정</a>에서 거부할 수 있습니다.</Li>
-            <Li>Google의 개인정보처리방침: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-black underline">policies.google.com/privacy</a></Li>
-          </ul>
-        </Section>
-
-        <Section title="쿠키(Cookie) 사용">
-          로그인 상태 유지를 위해 브라우저의 로컬 스토리지를 사용합니다.
-          광고 서비스(Google AdSense) 운영을 위해 제3자 쿠키가 사용될 수 있습니다.
-          브라우저 설정에서 쿠키를 거부할 수 있으나, 일부 기능이 제한될 수 있습니다.
+        <Section title="브라우저 저장소 사용">
+          로그인 상태와 학생이 선택한 학급 코드·학번을 유지하기 위해 브라우저의 로컬·세션 저장소를 사용합니다.
+          현재 맞춤형 광고 또는 광고 쿠키는 사용하지 않습니다. 브라우저 저장소를 삭제하면 저장된 로그인 상태와 학습 중 임시 정보가 사라질 수 있습니다.
         </Section>
 
         <Section title="정보의 보관 및 파기">
           <ul className="space-y-2 list-none">
-            <Li>회원 탈퇴 또는 교사가 학급을 삭제하면 관련 데이터가 함께 삭제됩니다.</Li>
-            <Li>비밀번호는 bcrypt로 암호화되어 저장되며, 원문은 보관하지 않습니다.</Li>
+            <Li>계정 정보는 서비스 이용 기간 동안 보관하며, 삭제 요청을 접수하면 확인 후 관련 정보를 삭제합니다.</Li>
+            <Li>교사가 학생 또는 테스트를 삭제하면 해당 로그인 정보 또는 테스트 결과도 함께 삭제됩니다.</Li>
+            <Li>비밀번호와 보안 질문 답변은 SHA-256 단방향 해시값으로 저장하며 원문은 보관하지 않습니다.</Li>
           </ul>
         </Section>
 
-        <Section title="제3자 정보 제공">
-          수집된 개인정보는 법령에 의한 경우를 제외하고 제3자에게 제공하지 않습니다.
-          광고 운영을 위한 Google과의 데이터 처리는 Google의 약관에 따릅니다.
+        <Section title="외부 서비스 이용">
+          서비스 운영을 위해 Google Firebase의 Authentication, Firestore, Hosting을 이용합니다.
+          수집된 정보는 서비스 제공과 법령상 의무 이행 목적 외에는 임의로 제3자에게 판매하거나 제공하지 않습니다.
         </Section>
 
         <Section title="문의">
-          개인정보 처리에 관한 문의는 아래로 연락주세요.
+          개인정보 열람·정정·삭제 요청 및 처리 관련 문의는 아래로 연락주세요.
           <p className="mt-2 font-medium text-black">kimjjyun8@gmail.com</p>
         </Section>
 

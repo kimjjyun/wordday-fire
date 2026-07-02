@@ -7,7 +7,7 @@
     "deploy:hosting": "npm run build && firebase deploy --only hosting --project wordday-fire"
   },
   "devDependencies": {
-    "firebase-tools": "^14.0.0",
+    "firebase-tools": "^15.22.4",
     "playwright": "^1.60.0"
   }
 }

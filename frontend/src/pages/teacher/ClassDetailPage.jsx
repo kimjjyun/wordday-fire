@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getClass, bulkCreateStudents, deleteStudent, updateStudent } from '../../api/classes';
-import { createWordBook, bulkAddWords, deleteWordBook } from '../../api/wordbooks';
+import { createWordBook, deleteWordBook } from '../../api/wordbooks';
 import { createTest, createTestWithWords, deleteFinishedTests, getClassOpenTests, getClassTestHistory } from '../../api/tests';
 import { RECOMMENDED_WORDS, WORDS_PER_DAY } from '../../data/recommendedWords';
 import Layout from '../../components/Layout';
@@ -165,14 +165,12 @@ export default function ClassDetailPage() {
     if (!wbForm.title || !wbForm.week) return;
     setWbLoading(true);
     try {
-      const res = await createWordBook({ classId: id, title: wbForm.title, week: Number(wbForm.week) });
-      if (withDefault) {
-        const words = RECOMMENDED_WORDS.map(w => ({
-          english: w.english, korean: w.korean,
-          example: w.example || '', pronunciation: w.pronunciation || '',
-        }));
-        await bulkAddWords(res.data.id, words);
-      }
+      await createWordBook({
+        classId: id,
+        title: wbForm.title,
+        week: Number(wbForm.week),
+        usesRecommendedWords: withDefault,
+      });
       setWbForm({ title: '', week: '' });
       setWithDefault(true);
       setShowAddWb(false);
@@ -816,7 +814,7 @@ export default function ClassDetailPage() {
 
               <div className="flex gap-2 pt-1">
                 <button onClick={handleAddWordBook} disabled={wbLoading} className="flex-1 bg-black text-white font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40">
-                  {wbLoading ? <LoadingDots label={withDefault ? '단어 추가 중' : '생성 중'} /> : '만들기'}
+                  {wbLoading ? <LoadingDots label="생성 중" /> : '만들기'}
                 </button>
                 <button onClick={() => { setShowAddWb(false); setWithDefault(true); }} disabled={wbLoading} className="flex-1 border border-gray-200 text-black font-bold py-3 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40">취소</button>
               </div>

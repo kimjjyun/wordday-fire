@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getCountFromServer, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const response = data => Promise.resolve({ data });
@@ -9,6 +9,11 @@ export const now = () => new Date().toISOString();
 export async function docsWhere(name, field, value) {
   const snap = await getDocs(query(collection(db, name), where(field, '==', value)));
   return snap.docs.map(withId);
+}
+
+export async function countWhere(name, field, value) {
+  const snapshot = await getCountFromServer(query(collection(db, name), where(field, '==', value)));
+  return snapshot.data().count;
 }
 
 export async function sha256(value) {

@@ -18,7 +18,7 @@ export default function ResetPasswordPage() {
   const handleSubmit = async e => {
     e.preventDefault();
     setError('');
-    if (password.length < 6) return setError('비밀번호는 6자 이상이어야 합니다.');
+    if (password.length < 8) return setError('비밀번호는 8자 이상이어야 합니다.');
     if (password !== confirm) return setError('비밀번호가 일치하지 않습니다.');
     setLoading(true);
     try {
@@ -61,7 +61,8 @@ export default function ResetPasswordPage() {
         <input
           className={inputCls}
           type="password"
-          placeholder="새 비밀번호 (6자 이상)"
+          minLength={8}
+          placeholder="새 비밀번호 (8자 이상)"
           value={password}
           onChange={e => setPassword(e.target.value)}
           required

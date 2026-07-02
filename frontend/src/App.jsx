@@ -1,33 +1,37 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import InstallGuide from './components/InstallGuide';
+import LoadingDots from './components/LoadingDots';
 
-import LoginPage from './pages/LoginPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import PrivacyPage       from './pages/PrivacyPage';
-import GuidePage         from './pages/GuidePage';
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const GuidePage = lazy(() => import('./pages/GuidePage'));
+const SoloHome = lazy(() => import('./pages/solo/SoloHome'));
+const SoloFlashcard = lazy(() => import('./pages/solo/SoloFlashcard'));
+const SoloQuiz = lazy(() => import('./pages/solo/SoloQuiz'));
+const StudentHome = lazy(() => import('./pages/student/StudentHome'));
+const FlashcardPage = lazy(() => import('./pages/student/FlashcardPage'));
+const QuizPage = lazy(() => import('./pages/student/QuizPage'));
+const TestWaitingPage = lazy(() => import('./pages/student/TestWaitingPage'));
+const TestActivePage = lazy(() => import('./pages/student/TestActivePage'));
+const TestResultPage = lazy(() => import('./pages/student/TestResultPage'));
+const StudentSettingsPage = lazy(() => import('./pages/student/StudentSettingsPage'));
+const TeacherDashboard = lazy(() => import('./pages/teacher/TeacherDashboard'));
+const TeacherSettingsPage = lazy(() => import('./pages/teacher/TeacherSettingsPage'));
+const ClassDetailPage = lazy(() => import('./pages/teacher/ClassDetailPage'));
+const WordBookPage = lazy(() => import('./pages/teacher/WordBookPage'));
+const TestRunPage = lazy(() => import('./pages/teacher/TestRunPage'));
+const TestResultsPage = lazy(() => import('./pages/teacher/TestResultsPage'));
 
-// 솔로
-import SoloHome      from './pages/solo/SoloHome';
-import SoloFlashcard from './pages/solo/SoloFlashcard';
-import SoloQuiz      from './pages/solo/SoloQuiz';
-
-// 학생
-import StudentHome         from './pages/student/StudentHome';
-import FlashcardPage       from './pages/student/FlashcardPage';
-import QuizPage            from './pages/student/QuizPage';
-import TestWaitingPage     from './pages/student/TestWaitingPage';
-import TestActivePage      from './pages/student/TestActivePage';
-import TestResultPage      from './pages/student/TestResultPage';
-import StudentSettingsPage from './pages/student/StudentSettingsPage';
-
-// 교사
-import TeacherDashboard   from './pages/teacher/TeacherDashboard';
-import TeacherSettingsPage from './pages/teacher/TeacherSettingsPage';
-import ClassDetailPage  from './pages/teacher/ClassDetailPage';
-import WordBookPage     from './pages/teacher/WordBookPage';
-import TestRunPage      from './pages/teacher/TestRunPage';
-import TestResultsPage  from './pages/teacher/TestResultsPage';
+function RouteLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <LoadingDots label="불러오는 중" />
+    </div>
+  );
+}
 
 function RequireAuth({ role, children }) {
   const { token, user } = useAuthStore();
@@ -40,7 +44,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <InstallGuide />
-      <Routes>
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
         <Route path="/login"          element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy"        element={<PrivacyPage />} />
@@ -70,7 +75,8 @@ export default function App() {
 
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
