@@ -8,6 +8,8 @@
     @apply bg-white text-black font-sans;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 
@@ -40,14 +42,8 @@
   will-change: transform, opacity;
 }
 
-/* PWA 상태 표시줄과 상단 버튼이 겹치지 않도록 기기 안전 영역 확보 */
+/* iOS PWA 상태바 아래에 헤더의 기본 여백(1rem)을 더해 버튼을 보호 */
 .safe-area-top {
   padding-top: calc(1rem + constant(safe-area-inset-top));
   padding-top: calc(1rem + env(safe-area-inset-top, 0px));
-}
-
-/* iOS PWA가 안전 영역을 0으로 반환해도 상태 표시줄 아래에서 헤더 시작 */
-html.wordday-standalone .safe-area-top,
-body.wordday-standalone .safe-area-top {
-  padding-top: max(4.75rem, calc(1rem + env(safe-area-inset-top, 0px))) !important;
 }
