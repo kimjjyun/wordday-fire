@@ -40,8 +40,19 @@ export async function teacherLogin({ email: username, password }) {
   try {
     const user = await freshAnonymousUser();
     const key = await teacherKey(username);
-    await updateDoc(doc(db, 'teacherLogins', key), {
-      teacherUid: user.uid, claimProof: await passwordProof(password), claimedAt: new Date().toISOString(),
+    const loginRef = doc(db, 'teacherLogins', key);
+    const loginSnap = await getDoc(loginRef);
+    if (!loginSnap.exists()) throw new Error('교사 정보를 찾을 수 없습니다.');
+    const login = loginSnap.data();
+    await updateDoc(loginRef, {
+      teacherId: login.teacherId,
+      username: login.username,
+      passwordHash: login.passwordHash,
+      securityAnswerHash: login.securityAnswerHash,
+      securityQuestion: login.securityQuestion,
+      teacherUid: user.uid,
+      claimProof: await passwordProof(password),
+      claimedAt: new Date().toISOString(),
     });
     await setDoc(doc(db, 'teacherSessions', user.uid), { loginKey: key, teacherId: key, createdAt: new Date().toISOString() });
     const snap = await getDoc(doc(db, 'teachers', key));
@@ -88,9 +99,17 @@ export async function studentLogin({ classCode, studentCode, password }) {
     const user = await freshAnonymousUser();
     const key = await studentLoginKey(classCode, studentCode);
     const loginRef = doc(db, 'studentLogins', key);
-    await updateDoc(loginRef, { studentUid: user.uid, claimProof: await passwordProof(password), claimedAt: new Date().toISOString() });
     const loginSnap = await getDoc(loginRef);
     if (!loginSnap.exists()) throw new Error('로그인 정보를 찾을 수 없습니다.');
+    const login = loginSnap.data();
+    await updateDoc(loginRef, {
+      studentId: login.studentId,
+      classId: login.classId,
+      passwordHash: login.passwordHash,
+      studentUid: user.uid,
+      claimProof: await passwordProof(password),
+      claimedAt: new Date().toISOString(),
+    });
     const classPromise = getDoc(doc(db, 'classes', loginSnap.data().classId));
     await setDoc(doc(db, 'studentSessions', user.uid), { loginKey: key, studentId: loginSnap.data().studentId, classId: loginSnap.data().classId, createdAt: new Date().toISOString() });
     const [studentSnap, classSnap] = await Promise.all([
