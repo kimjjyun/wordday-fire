@@ -24,13 +24,14 @@ service cloud.firestore {
           && request.resource.data.passwordHash == resource.data.passwordHash
           && request.resource.data.securityAnswerHash == resource.data.securityAnswerHash
           && request.resource.data.claimProof == resource.data.passwordHash
-          && request.resource.data.teacherUid == request.auth.uid)
+          && request.resource.data.teacherUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teacherUid', 'claimProof', 'claimedAt']))
         || (signedIn()
           && request.resource.data.currentAnswerProof == resource.data.securityAnswerHash
           && request.resource.data.passwordHash == request.resource.data.newPasswordHash
           && request.resource.data.teacherUid == null)
         || (teacher() && loginKey == teacherSession().loginKey);
-      allow get: if teacher() && loginKey == teacherSession().loginKey;
+      allow get: if signedIn() && resource.data.teacherUid == request.auth.uid;
     }
 
     match /teacherSessions/{uid} {
@@ -70,7 +71,8 @@ service cloud.firestore {
           && request.resource.data.classId == resource.data.classId
           && request.resource.data.passwordHash == resource.data.passwordHash
           && request.resource.data.claimProof == resource.data.passwordHash
-          && request.resource.data.studentUid == request.auth.uid)
+          && request.resource.data.studentUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentUid', 'claimProof', 'claimedAt']))
         || (signedIn() && resource.data.studentUid == request.auth.uid
           && request.resource.data.currentProof == resource.data.passwordHash
           && request.resource.data.passwordHash == request.resource.data.newPasswordHash);
