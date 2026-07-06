@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { usePremiumStore } from '../../store/premiumStore';
-import { getSoloPack, loadSoloPackWords } from '../../data/soloPacks';
+import { RECOMMENDED_WORDS } from '../../data/recommendedWords';
 import ShareButton from '../../components/ShareButton';
 
-function buildQuestions(words, poolKorean) {
+// 오답 풀은 전체 단어에서 뽑아 선택지 품질 유지
+const POOL_KOREAN = [...new Set(RECOMMENDED_WORDS.map(w => w.korean))];
+
+function buildQuestions(words) {
   return words.map(word => {
-    const others = poolKorean.filter(k => k !== word.korean)
+    const others = POOL_KOREAN.filter(k => k !== word.korean)
       .sort(() => Math.random() - 0.5).slice(0, 3);
     if (others.length < 3) return null;
     const options = [...others, word.korean].sort(() => Math.random() - 0.5);
@@ -17,62 +19,28 @@ function buildQuestions(words, poolKorean) {
 export default function SoloQuiz() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const middleUnlocked = usePremiumStore(s => s.middleSchoolUnlocked);
-  const packId = state?.packId ?? 'recommended';
-  const [words, setWords] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [index, setIndex] = useState(0);
+
+  const baseWords = useMemo(() => {
+    const cat = state?.category ?? 'all';
+    const day = state?.day ?? 0;
+    return RECOMMENDED_WORDS.filter(w => {
+      if (cat !== 'all' && w.category !== cat) return false;
+      if (day !== 0 && w.day !== day) return false;
+      return true;
+    });
+  }, []);
+
+  const [questions, setQuestions] = useState(() => buildQuestions(baseWords));
+  const [index,    setIndex]    = useState(0);
   const [selected, setSelected] = useState(null);
-  const [score, setScore] = useState(0);
+  const [score,    setScore]    = useState(0);
   const [wrongList, setWrongList] = useState([]);
-  const [done, setDone] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let alive = true;
-    const pack = getSoloPack(packId);
-    if (pack.hidden && !middleUnlocked) {
-      setWords([]);
-      setQuestions([]);
-      setLoading(false);
-      return () => { alive = false; };
-    }
-
-    setLoading(true);
-    loadSoloPackWords(packId)
-      .then(result => {
-        if (!alive) return;
-        const cat = state?.category ?? 'all';
-        const day = state?.day ?? 0;
-        const filtered = result.filter(w => {
-          if (packId === 'recommended' && cat !== 'all' && w.category !== cat) return false;
-          if (day !== 0 && w.day !== day) return false;
-          return true;
-        });
-        const pool = filtered.length > 0 ? filtered : result;
-        setWords(filtered);
-        setQuestions(buildQuestions(filtered, [...new Set(pool.map(w => w.korean))]));
-        setIndex(0);
-        setSelected(null);
-        setScore(0);
-        setWrongList([]);
-        setDone(false);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setWords([]);
-        setQuestions([]);
-        setLoading(false);
-      });
-
-    return () => { alive = false; };
-  }, [packId, middleUnlocked, state?.category, state?.day]);
+  const [done,     setDone]     = useState(false);
 
   const q = questions[index];
 
   const handleSelect = (opt) => {
-    if (selected || !q) return;
+    if (selected) return;
     setSelected(opt);
     const correct = opt === q.answer;
     if (correct) setScore(s => s + 1);
@@ -84,36 +52,12 @@ export default function SoloQuiz() {
   };
 
   const restart = () => {
-    setIndex(0);
-    setSelected(null);
-    setScore(0);
-    setWrongList([]);
-    setDone(false);
-    setQuestions(buildQuestions(words, [...new Set(words.map(w => w.korean))]));
+    setIndex(0); setSelected(null); setScore(0);
+    setWrongList([]); setDone(false);
+    setQuestions(buildQuestions(baseWords));
   };
 
-  if (getSoloPack(packId).hidden && !middleUnlocked) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-300 mb-4">Locked</p>
-        <p className="text-3xl font-black tracking-tighter mb-3">중학 팩이 잠겨 있어요</p>
-        <p className="text-[13px] text-gray-300 font-medium mb-8">홈에서 가상 결제를 하면 바로 열립니다.</p>
-        <button onClick={() => navigate('/solo')} className="bg-black text-white font-bold py-4 px-10 rounded-full text-[15px]">홈으로</button>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-300 mb-4">Loading</p>
-        <p className="text-3xl font-black tracking-tighter mb-3">퀴즈를 불러오는 중</p>
-        <p className="text-[13px] text-gray-300 font-medium">선택한 팩을 준비하고 있어요</p>
-      </div>
-    );
-  }
-
-  if (words.length < 4) return (
+  if (baseWords.length < 4) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
       <p className="text-[11px] font-bold uppercase tracking-widest text-gray-300 mb-4">Quiz</p>
       <p className="text-2xl font-black tracking-tighter mb-2">단어가 부족해요</p>
@@ -187,9 +131,9 @@ export default function SoloQuiz() {
           {q.options.map((opt, i) => {
             let cls = 'border-2 border-gray-100 text-gray-700 bg-white';
             if (selected) {
-              if (opt === q.answer) cls = 'bg-black border-black text-white';
+              if (opt === q.answer)      cls = 'bg-black border-black text-white';
               else if (opt === selected) cls = 'bg-gray-100 border-gray-100 text-gray-400 line-through';
-              else cls = 'border-gray-100 text-gray-200 bg-white';
+              else                       cls = 'border-gray-100 text-gray-200 bg-white';
             }
             return (
               <button key={i} onClick={() => handleSelect(opt)}
