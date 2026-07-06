@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getClasses, createClass } from '../../api/classes';
+import { getClasses, createClass, deleteClasses } from '../../api/classes';
 import { useAuthStore } from '../../store/authStore';
 import Layout from '../../components/Layout';
+import LoadingDots from '../../components/LoadingDots';
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
@@ -11,6 +12,10 @@ export default function TeacherDashboard() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName,    setNewName]    = useState('');
   const [loading,    setLoading]    = useState(true);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const load = () => getClasses().then(r => setClasses(r.data)).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
@@ -19,6 +24,31 @@ export default function TeacherDashboard() {
     if (!newName.trim()) return;
     await createClass({ name: newName.trim() });
     setNewName(''); setShowCreate(false); load();
+  };
+
+  const toggleSelection = id => {
+    setSelectedIds(previous => {
+      const next = new Set(previous);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    setConfirmDelete(false);
+    setDeleteError('');
+  };
+
+  const handleDelete = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      await deleteClasses([...selectedIds]);
+      setSelectedIds(new Set());
+      setConfirmDelete(false);
+      await load();
+    } catch (error) {
+      setDeleteError(error?.message || '학급 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -111,12 +141,27 @@ export default function TeacherDashboard() {
           </div>
         ) : (
           <div>
+            <div className="flex justify-end mb-1">
+              <button
+                onClick={() => {
+                  setSelectedIds(selectedIds.size === classes.length ? new Set() : new Set(classes.map(cls => cls.id)));
+                  setConfirmDelete(false);
+                }}
+                className="text-[11px] font-bold text-gray-400 hover:text-black transition"
+              >{selectedIds.size === classes.length ? '전체 해제' : '전체 선택'}</button>
+            </div>
             {classes.map((cls, i) => (
               <div key={cls.id}>
-                <button
-                  className="w-full flex items-center justify-between py-4 text-left active:bg-gray-50 rounded-xl transition"
-                  onClick={() => navigate(`/teacher/classes/${cls.id}`)}
-                >
+                <div className="w-full flex items-center gap-3 py-4">
+                  <button
+                    onClick={() => toggleSelection(cls.id)}
+                    className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition ${selectedIds.has(cls.id) ? 'bg-black border-black' : 'border-gray-200 hover:border-gray-400'}`}
+                    aria-label={`${cls.name} 선택`}
+                  >{selectedIds.has(cls.id) && <span className="text-white text-[10px]">✓</span>}</button>
+                  <button
+                    className="flex-1 flex items-center justify-between text-left active:bg-gray-50 rounded-xl transition min-w-0"
+                    onClick={() => navigate(`/teacher/classes/${cls.id}`)}
+                  >
                   <div>
                     <p className="font-bold text-[17px] tracking-tight text-black">{cls.name}</p>
                     <p className="text-[12px] text-gray-400 font-medium mt-0.5">학생 {cls.studentCount}명</p>
@@ -127,10 +172,31 @@ export default function TeacherDashboard() {
                     </span>
                     <span className="text-gray-200 text-lg">›</span>
                   </div>
-                </button>
+                  </button>
+                </div>
                 {i < classes.length - 1 && <div className="h-px bg-gray-100" />}
               </div>
             ))}
+            {selectedIds.size > 0 && (
+              <div className="mt-4">
+                {deleteError && <p className="text-[12px] text-center mb-2">{deleteError}</p>}
+                {!confirmDelete ? (
+                  <div className="flex gap-2">
+                    <button onClick={() => setConfirmDelete(true)} className="flex-1 bg-black text-white text-[13px] font-bold py-3 rounded-full">삭제 ({selectedIds.size}개)</button>
+                    <button onClick={() => setSelectedIds(new Set())} className="px-4 text-[13px] font-bold text-gray-300">취소</button>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <p className="text-[12px] font-bold text-center mb-1">선택한 학급의 모든 데이터를 삭제할까요?</p>
+                    <p className="text-[11px] text-gray-400 text-center mb-3">학생·학습 기록·단어장·테스트 결과도 영구 삭제됩니다.</p>
+                    <div className="flex gap-2">
+                      <button onClick={handleDelete} disabled={deleteLoading} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40">{deleteLoading ? <LoadingDots label="삭제 중" /> : '영구 삭제'}</button>
+                      <button onClick={() => setConfirmDelete(false)} disabled={deleteLoading} className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full">취소</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

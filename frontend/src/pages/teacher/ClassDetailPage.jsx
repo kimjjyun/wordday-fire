@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getClass, bulkCreateStudents, deleteStudent, updateStudent } from '../../api/classes';
-import { createWordBook, deleteWordBook } from '../../api/wordbooks';
-import { createTest, createTestWithWords, deleteFinishedTests, getClassOpenTests, getClassTestHistory } from '../../api/tests';
+import { getClass, bulkCreateStudents, deleteStudents, updateStudent } from '../../api/classes';
+import { createWordBook, deleteWordBooks } from '../../api/wordbooks';
+import { createTest, createTestWithWords, deleteFinishedTests, deleteOpenTests, getClassOpenTests, getClassTestHistory } from '../../api/tests';
 import { RECOMMENDED_WORDS, WORDS_PER_DAY } from '../../data/recommendedWords';
 import Layout from '../../components/Layout';
 import LoadingDots from '../../components/LoadingDots';
@@ -39,8 +39,10 @@ export default function ClassDetailPage() {
   const [wbForm,       setWbForm]       = useState({ title: '', week: '' });
   const [withDefault,  setWithDefault]  = useState(true);
   const [wbLoading,    setWbLoading]    = useState(false);
-  const [confirmWbId,  setConfirmWbId]  = useState(null);
-  const [deletingWbId, setDeletingWbId] = useState(null);
+  const [selectedWbIds, setSelectedWbIds] = useState(new Set());
+  const [confirmWbDelete, setConfirmWbDelete] = useState(false);
+  const [wbDeleteLoading, setWbDeleteLoading] = useState(false);
+  const [wbDeleteError, setWbDeleteError] = useState('');
   const [studentSort,  setStudentSort]  = useState('code'); // 'code' | 'name'
   const [rows,         setRows]         = useState([{ name: '', studentCode: '', password: '' }]);
   const [directMsg,    setDirectMsg]    = useState('');
@@ -54,6 +56,10 @@ export default function ClassDetailPage() {
   const [confirmTestDelete, setConfirmTestDelete] = useState(false);
   const [testDeleteLoading, setTestDeleteLoading] = useState(false);
   const [testDeleteError, setTestDeleteError] = useState('');
+  const [selectedOpenTestIds, setSelectedOpenTestIds] = useState(new Set());
+  const [confirmOpenDelete, setConfirmOpenDelete] = useState(false);
+  const [openDeleteLoading, setOpenDeleteLoading] = useState(false);
+  const [openDeleteError, setOpenDeleteError] = useState('');
   const [showInvite,   setShowInvite]   = useState(false);
   const [inviteQr,     setInviteQr]     = useState('');
 
@@ -63,6 +69,8 @@ export default function ClassDetailPage() {
   const [editLoading,  setEditLoading]  = useState(false);
   const [editMsg,      setEditMsg]      = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [confirmStudentDelete, setConfirmStudentDelete] = useState(false);
+  const [studentDeleteError, setStudentDeleteError] = useState('');
 
   // 함께하기 모달
   const DAY_SIZE   = WORDS_PER_DAY; // 하루 20개 (앱 전체 공통 기준)
@@ -180,12 +188,17 @@ export default function ClassDetailPage() {
     }
   };
 
-  const handleDeleteWordBook = async (wbId) => {
-    setDeletingWbId(wbId);
-    setConfirmWbId(null);
-    try { await deleteWordBook(wbId); load(); }
-    catch { /* no-op */ }
-    finally { setDeletingWbId(null); }
+  const handleDeleteWordBooks = async () => {
+    setWbDeleteLoading(true);
+    setWbDeleteError('');
+    try {
+      await deleteWordBooks([...selectedWbIds]);
+      setSelectedWbIds(new Set());
+      setConfirmWbDelete(false);
+      await load();
+    } catch (error) {
+      setWbDeleteError(error?.message || '단어장 삭제 중 오류가 발생했습니다.');
+    } finally { setWbDeleteLoading(false); }
   };
 
   const updateRow = (i, f, v) => setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
@@ -240,6 +253,8 @@ export default function ClassDetailPage() {
     });
     setEditForm(null);
     setEditMsg('');
+    setConfirmStudentDelete(false);
+    setStudentDeleteError('');
   };
 
   const clearSelection = () => { setSelectedIds(new Set()); setEditForm(null); setEditMsg(''); };
@@ -247,12 +262,28 @@ export default function ClassDetailPage() {
   // ── 선택 삭제 ────────────────────────────────────────────────
   const handleBulkDelete = async () => {
     setActionLoading(true);
+    setStudentDeleteError('');
     try {
-      await Promise.all([...selectedIds].map(sid => deleteStudent(id, sid)));
+      await deleteStudents(id, [...selectedIds]);
       clearSelection();
-      load();
-    } catch { /* no-op */ }
+      setConfirmStudentDelete(false);
+      await load();
+    } catch (error) { setStudentDeleteError(error?.message || '학생 삭제 중 오류가 발생했습니다.'); }
     finally { setActionLoading(false); }
+  };
+
+  const handleDeleteOpenTests = async () => {
+    setOpenDeleteLoading(true);
+    setOpenDeleteError('');
+    try {
+      await deleteOpenTests(id, [...selectedOpenTestIds]);
+      const result = await getClassOpenTests(id);
+      setOpenTests(result.data);
+      setSelectedOpenTestIds(new Set());
+      setConfirmOpenDelete(false);
+    } catch (error) {
+      setOpenDeleteError(error?.message || '진행 중 테스트 삭제 중 오류가 발생했습니다.');
+    } finally { setOpenDeleteLoading(false); }
   };
 
   // ── 수정 시작 ────────────────────────────────────────────────
@@ -737,28 +768,24 @@ export default function ClassDetailPage() {
 
               {/* 선택 시 액션 바 */}
               {selectedIds.size > 0 && !editForm && (
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={handleBulkDelete}
-                    disabled={actionLoading}
-                    className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full transition active:scale-[0.97] disabled:opacity-40"
-                  >
-                    {actionLoading ? <LoadingDots label="삭제 중" /> : `삭제 (${selectedIds.size}명)`}
-                  </button>
-                  {selectedIds.size === 1 && (
-                    <button
-                      onClick={handleEditStart}
-                      className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full transition hover:border-gray-400 active:scale-[0.97]"
-                    >
-                      수정
-                    </button>
+                <div className="mt-3">
+                  {studentDeleteError && <p className="text-[11px] text-center mb-2">{studentDeleteError}</p>}
+                  {!confirmStudentDelete ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmStudentDelete(true)} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full">삭제 ({selectedIds.size}명)</button>
+                      {selectedIds.size === 1 && <button onClick={handleEditStart} className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full">수정</button>}
+                      <button onClick={clearSelection} className="px-4 text-[13px] font-bold text-gray-300">취소</button>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-[12px] font-bold text-center mb-1">선택한 학생을 삭제할까요?</p>
+                      <p className="text-[11px] text-gray-400 text-center mb-2">로그인과 학습 기록, 테스트 결과도 함께 삭제됩니다.</p>
+                      <div className="flex gap-2">
+                        <button onClick={handleBulkDelete} disabled={actionLoading} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40">{actionLoading ? <LoadingDots label="삭제 중" /> : '영구 삭제'}</button>
+                        <button onClick={() => setConfirmStudentDelete(false)} disabled={actionLoading} className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full">취소</button>
+                      </div>
+                    </div>
                   )}
-                  <button
-                    onClick={clearSelection}
-                    className="px-4 text-[13px] font-bold text-gray-300 hover:text-black transition"
-                  >
-                    취소
-                  </button>
                 </div>
               )}
             </div>
@@ -825,9 +852,32 @@ export default function ClassDetailPage() {
             <p className="text-[13px] text-gray-300 font-medium py-4">단어장을 추가해야 학생이 공부할 수 있어요</p>
           ) : (
             <div>
+              <div className="flex justify-end mb-1">
+                <button
+                  onClick={() => {
+                    setSelectedWbIds(selectedWbIds.size === cls.wordBooks.length ? new Set() : new Set(cls.wordBooks.map(book => book.id)));
+                    setConfirmWbDelete(false);
+                    setWbDeleteError('');
+                  }}
+                  className="text-[11px] font-bold text-gray-400 hover:text-black transition"
+                >{selectedWbIds.size === cls.wordBooks.length ? '전체 해제' : '전체 선택'}</button>
+              </div>
               {cls.wordBooks.map((wb, i) => (
                 <div key={wb.id}>
                   <div className="flex items-center gap-2 py-2">
+                    <button
+                      onClick={() => {
+                        setSelectedWbIds(previous => {
+                          const next = new Set(previous);
+                          next.has(wb.id) ? next.delete(wb.id) : next.add(wb.id);
+                          return next;
+                        });
+                        setConfirmWbDelete(false);
+                        setWbDeleteError('');
+                      }}
+                      className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition ${selectedWbIds.has(wb.id) ? 'bg-black border-black' : 'border-gray-200 hover:border-gray-400'}`}
+                      aria-label={`${wb.title} 선택`}
+                    >{selectedWbIds.has(wb.id) && <span className="text-white text-[10px]">✓</span>}</button>
                     <button
                       className="flex-1 flex items-center justify-between py-2 text-left active:bg-gray-50 rounded-xl transition min-w-0"
                       onClick={() => navigate(`/teacher/wordbooks/${wb.id}`)}
@@ -838,30 +888,30 @@ export default function ClassDetailPage() {
                       </div>
                       <span className="text-gray-200 text-lg ml-2">›</span>
                     </button>
-                    {confirmWbId === wb.id ? (
-                      <div className="flex items-center gap-2 shrink-0 pl-1">
-                        <button
-                          onClick={() => handleDeleteWordBook(wb.id)}
-                          disabled={deletingWbId === wb.id}
-                          className="text-[11px] font-bold text-white bg-black rounded-full px-3 py-1.5 transition disabled:opacity-40"
-                        >{deletingWbId === wb.id ? <LoadingDots label="삭제 중" /> : '삭제'}</button>
-                        <button
-                          onClick={() => setConfirmWbId(null)}
-                          className="text-[11px] font-bold text-gray-300 hover:text-black transition"
-                        >취소</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmWbId(wb.id)}
-                        disabled={deletingWbId === wb.id}
-                        className="shrink-0 w-7 h-7 flex items-center justify-center text-gray-300 hover:text-black text-lg font-bold transition disabled:opacity-40"
-                        aria-label="단어장 삭제"
-                      >×</button>
-                    )}
                   </div>
                   {i < cls.wordBooks.length - 1 && <div className="h-px bg-gray-100" />}
                 </div>
               ))}
+              {selectedWbIds.size > 0 && (
+                <div className="mt-3">
+                  {wbDeleteError && <p className="text-[11px] text-center mb-2">{wbDeleteError}</p>}
+                  {!confirmWbDelete ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmWbDelete(true)} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full">삭제 ({selectedWbIds.size}개)</button>
+                      <button onClick={() => setSelectedWbIds(new Set())} className="px-4 text-[13px] font-bold text-gray-300">취소</button>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-[12px] font-bold text-center mb-1">선택한 단어장을 삭제할까요?</p>
+                      <p className="text-[11px] text-gray-400 text-center mb-2">포함된 단어도 영구 삭제됩니다.</p>
+                      <div className="flex gap-2">
+                        <button onClick={handleDeleteWordBooks} disabled={wbDeleteLoading} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40">{wbDeleteLoading ? <LoadingDots label="삭제 중" /> : '영구 삭제'}</button>
+                        <button onClick={() => setConfirmWbDelete(false)} disabled={wbDeleteLoading} className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full">취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -871,27 +921,63 @@ export default function ClassDetailPage() {
           <>
             <div className="h-px bg-gray-100 mt-6 mb-6" />
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-3">Open Tests</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">Open Tests</p>
+                <button
+                  onClick={() => {
+                    setSelectedOpenTestIds(selectedOpenTestIds.size === openTests.length ? new Set() : new Set(openTests.map(test => test.id)));
+                    setConfirmOpenDelete(false);
+                    setOpenDeleteError('');
+                  }}
+                  className="text-[11px] font-bold text-gray-400 hover:text-black transition"
+                >{selectedOpenTestIds.size === openTests.length ? '전체 해제' : '전체 선택'}</button>
+              </div>
               <div className="space-y-2">
                 {openTests.map(test => (
-                  <button
-                    key={test.id}
-                    onClick={() => navigate(`/teacher/test/${test.id}/run`)}
-                    className="w-full border-2 border-black rounded-2xl px-4 py-3.5 flex items-center justify-between text-left active:scale-[0.98] transition"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-bold text-[14px] tracking-tight text-black truncate">{test.wordBookTitle}</p>
-                      <p className="text-[11px] font-medium text-gray-400 mt-1">
-                        {formatTestDateTime(test.createdAt)} · {test.status === 'waiting' ? '입장 대기 중' : '시험 진행 중'} · 학생 {test.studentCount}명
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0 ml-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-300">Room</p>
-                      <p className="text-[18px] font-black tracking-[0.16em] text-black">{test.roomCode}</p>
-                    </div>
-                  </button>
+                  <div key={test.id} className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedOpenTestIds(previous => {
+                          const next = new Set(previous);
+                          next.has(test.id) ? next.delete(test.id) : next.add(test.id);
+                          return next;
+                        });
+                        setConfirmOpenDelete(false);
+                        setOpenDeleteError('');
+                      }}
+                      className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition ${selectedOpenTestIds.has(test.id) ? 'bg-black border-black' : 'border-gray-200'}`}
+                      aria-label={`${test.wordBookTitle} 선택`}
+                    >{selectedOpenTestIds.has(test.id) && <span className="text-white text-[10px]">✓</span>}</button>
+                    <button onClick={() => navigate(`/teacher/test/${test.id}/run`)} className="flex-1 border-2 border-black rounded-2xl px-4 py-3.5 flex items-center justify-between text-left active:scale-[0.98] transition min-w-0">
+                      <div className="min-w-0">
+                        <p className="font-bold text-[14px] tracking-tight text-black truncate">{test.wordBookTitle}</p>
+                        <p className="text-[11px] font-medium text-gray-400 mt-1">{formatTestDateTime(test.createdAt)} · {test.status === 'waiting' ? '입장 대기 중' : '시험 진행 중'} · 학생 {test.studentCount}명</p>
+                      </div>
+                      <div className="text-right shrink-0 ml-3"><p className="text-[10px] font-bold uppercase tracking-wider text-gray-300">Room</p><p className="text-[18px] font-black tracking-[0.16em] text-black">{test.roomCode}</p></div>
+                    </button>
+                  </div>
                 ))}
               </div>
+              {selectedOpenTestIds.size > 0 && (
+                <div className="mt-3">
+                  {openDeleteError && <p className="text-[11px] text-center mb-2">{openDeleteError}</p>}
+                  {!confirmOpenDelete ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmOpenDelete(true)} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full">삭제 ({selectedOpenTestIds.size}개)</button>
+                      <button onClick={() => setSelectedOpenTestIds(new Set())} className="px-4 text-[13px] font-bold text-gray-300">취소</button>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-[12px] font-bold text-center mb-1">선택한 테스트를 즉시 삭제할까요?</p>
+                      <p className="text-[11px] text-gray-400 text-center mb-2">진행 중인 학생의 시험도 중단되고 결과가 삭제됩니다.</p>
+                      <div className="flex gap-2">
+                        <button onClick={handleDeleteOpenTests} disabled={openDeleteLoading} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40">{openDeleteLoading ? <LoadingDots label="삭제 중" /> : '영구 삭제'}</button>
+                        <button onClick={() => setConfirmOpenDelete(false)} disabled={openDeleteLoading} className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full">취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -902,7 +988,7 @@ export default function ClassDetailPage() {
             <div className="h-px bg-gray-100 mt-6 mb-6" />
             <div>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">Recent Tests</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">Test History</p>
                 <button
                   onClick={() => {
                     const allSelected = selectedTestIds.size === testHistory.length;

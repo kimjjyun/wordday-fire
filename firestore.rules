@@ -82,7 +82,9 @@ service cloud.firestore {
     match /studentSessions/{uid} {
       allow create, update: if signedIn() && uid == request.auth.uid
         && get(/databases/$(database)/documents/studentLogins/$(request.resource.data.loginKey)).data.studentUid == request.auth.uid;
-      allow read, delete: if signedIn() && uid == request.auth.uid;
+      allow get: if (signedIn() && uid == request.auth.uid) || ownsClass(resource.data.classId);
+      allow list, delete: if ownsClass(resource.data.classId)
+        || (signedIn() && uid == request.auth.uid);
     }
 
     match /wordbooks/{id} {
@@ -99,9 +101,11 @@ service cloud.firestore {
     }
 
     match /studyRecords/{id} {
-      allow read: if ownsStudent(resource.data.studentId);
+      allow read: if ownsStudent(resource.data.studentId)
+        || (teacher() && ownsClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId));
       allow create: if ownsStudent(request.resource.data.studentId);
-      allow update, delete: if ownsStudent(resource.data.studentId);
+      allow update, delete: if ownsStudent(resource.data.studentId)
+        || (teacher() && ownsClass(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.classId));
     }
 
     match /tests/{id} {

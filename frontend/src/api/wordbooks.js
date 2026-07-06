@@ -95,22 +95,54 @@ export async function importCSV(id, file) {
 }
 
 export async function deleteWord(id, wordId) {
+  return deleteWords(id, [wordId]);
+}
+
+export async function deleteWords(id, wordIds) {
   await ownedWordbook(id);
   const recommendedPrefix = `recommended:${id}:`;
-  if (wordId.startsWith(recommendedPrefix)) {
-    const wordNumber = Number(wordId.slice(recommendedPrefix.length));
-    if (!Number.isInteger(wordNumber)) throw new Error('단어를 찾을 수 없습니다.');
-    await updateDoc(doc(db, 'wordbooks', id), { excludedRecommendedWordNumbers: arrayUnion(wordNumber) });
-    return response({ message: '단어를 삭제했습니다.' });
+  const recommendedNumbers = [];
+  const customIds = [];
+  for (const wordId of new Set(wordIds)) {
+    if (wordId.startsWith(recommendedPrefix)) {
+      const wordNumber = Number(wordId.slice(recommendedPrefix.length));
+      if (!Number.isInteger(wordNumber)) throw new Error('단어를 찾을 수 없습니다.');
+      recommendedNumbers.push(wordNumber);
+    } else {
+      customIds.push(wordId);
+    }
   }
-  await deleteDoc(doc(db, 'words', wordId));
-  return response({ message: '단어를 삭제했습니다.' });
+  if (recommendedNumbers.length) {
+    await updateDoc(doc(db, 'wordbooks', id), { excludedRecommendedWordNumbers: arrayUnion(...recommendedNumbers) });
+  }
+  for (let start = 0; start < customIds.length; start += 450) {
+    const batch = writeBatch(db);
+    customIds.slice(start, start + 450).forEach(wordId => batch.delete(doc(db, 'words', wordId)));
+    await batch.commit();
+  }
+  return response({ deleted: recommendedNumbers.length + customIds.length });
 }
 
 export async function deleteWordBook(id) {
-  await ownedWordbook(id);
-  const words = await docsWhere('words', 'wordBookId', id);
-  await Promise.all(words.map(word => deleteDoc(doc(db, 'words', word.id))));
-  await deleteDoc(doc(db, 'wordbooks', id));
-  return response({ message: '단어장을 삭제했습니다.' });
+  return deleteWordBooks([id]);
+}
+
+export async function deleteWordBooks(ids) {
+  const books = await Promise.all([...new Set(ids)].map(ownedWordbook));
+  const classIds = [...new Set(books.map(book => book.classId))];
+  const testGroups = await Promise.all(classIds.map(classId => docsWhere('tests', 'classId', classId)));
+  const referencedBookIds = new Set(testGroups.flat().map(test => test.wordBookId));
+  if (books.some(book => referencedBookIds.has(book.id))) {
+    throw new Error('테스트에서 사용 중인 단어장은 테스트를 먼저 삭제해주세요.');
+  }
+  for (const book of books) {
+    const words = await docsWhere('words', 'wordBookId', book.id);
+    for (let start = 0; start < words.length; start += 450) {
+      const batch = writeBatch(db);
+      words.slice(start, start + 450).forEach(word => batch.delete(doc(db, 'words', word.id)));
+      await batch.commit();
+    }
+    await deleteDoc(doc(db, 'wordbooks', book.id));
+  }
+  return response({ deleted: books.length });
 }

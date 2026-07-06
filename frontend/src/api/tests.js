@@ -100,7 +100,7 @@ export async function getResults(id) {
   const rows = [];
   for (const result of results) {
     const snap = await getDoc(doc(db, 'students', result.studentId));
-    rows.push({ studentName: snap.data()?.name || '알 수 없음', studentCode: snap.data()?.studentCode || '-', score: result.score, total: result.total, answered: result.answered });
+    rows.push({ id: result.id, studentId: result.studentId, studentName: snap.data()?.name || '알 수 없음', studentCode: snap.data()?.studentCode || '-', score: result.score, total: result.total, answered: result.answered });
   }
   rows.sort((a, b) => b.score - a.score);
   const scores = rows.map(row => row.score);
@@ -124,7 +124,7 @@ export function subscribeClassActiveTest(onChange, onError = () => {}) {
 }
 
 export async function getClassTestHistory(classId) {
-  const tests = (await docsWhere('tests', 'classId', classId)).filter(test => test.status === 'finished').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+  const tests = (await docsWhere('tests', 'classId', classId)).filter(test => test.status === 'finished').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const classResults = await docsWhere('testResults', 'classId', classId);
   const result = [];
   for (const test of tests) {
@@ -136,7 +136,7 @@ export async function getClassTestHistory(classId) {
   return response(result);
 }
 
-export async function deleteFinishedTests(classId, ids) {
+async function deleteTestsByStatus(classId, ids, allowedStatuses) {
   const uniqueIds = [...new Set(ids)];
   if (!uniqueIds.length) return response({ deleted: 0 });
 
@@ -145,8 +145,8 @@ export async function deleteFinishedTests(classId, ids) {
     const snap = await getDoc(doc(db, 'tests', id));
     if (!snap.exists()) continue;
     const test = { id: snap.id, ...snap.data() };
-    if (test.classId !== classId || test.status !== 'finished') {
-      throw new Error('종료된 테스트만 삭제할 수 있습니다.');
+    if (test.classId !== classId || !allowedStatuses.includes(test.status)) {
+      throw new Error('삭제할 수 없는 테스트가 포함되어 있습니다.');
     }
     tests.push(test);
   }
@@ -164,11 +164,25 @@ export async function deleteFinishedTests(classId, ids) {
   for (const wordBookId of new Set(tests.map(test => test.wordBookId))) {
     const bookSnap = await getDoc(doc(db, 'wordbooks', wordBookId));
     if (!bookSnap.exists() || bookSnap.data().isActive !== false) continue;
-    const remainingTests = await docsWhere('tests', 'wordBookId', wordBookId);
+    const remainingTests = (await docsWhere('tests', 'classId', classId)).filter(test => test.wordBookId === wordBookId);
     if (remainingTests.length === 0) await deleteWordBook(wordBookId);
   }
 
   return response({ deleted: tests.length });
+}
+
+export const deleteFinishedTests = (classId, ids) => deleteTestsByStatus(classId, ids, ['finished']);
+export const deleteOpenTests = (classId, ids) => deleteTestsByStatus(classId, ids, ['waiting', 'active']);
+
+export async function deleteTestResults(testId, ids) {
+  const testSnap = await getDoc(doc(db, 'tests', testId));
+  if (!testSnap.exists() || testSnap.data().teacherId !== currentUser()?.id || testSnap.data().status !== 'finished') {
+    throw new Error('종료된 테스트 결과만 삭제할 수 있습니다.');
+  }
+  const selectedIds = new Set(ids);
+  const results = (await resultsForTest(testSnap.data().classId, testId)).filter(result => selectedIds.has(result.id));
+  await Promise.all(results.map(result => deleteDoc(doc(db, 'testResults', result.id))));
+  return response({ deleted: results.length });
 }
 
 export async function getClassOpenTests(classId) {

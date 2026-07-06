@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayRemove, collection, doc, getDoc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { RECOMMENDED_WORDS } from '../data/recommendedWords';
@@ -68,9 +68,81 @@ export async function updateStudent(classId, studentId, data) {
 }
 
 export async function deleteStudent(classId, studentId) {
+  return deleteStudents(classId, [studentId]);
+}
+
+async function deleteRefs(refs) {
+  // 각 삭제 규칙이 소유권 문서를 조회하므로 배치당 규칙 조회 한도(20회)보다 작게 유지한다.
+  const batchSize = 10;
+  for (let start = 0; start < refs.length; start += batchSize) {
+    const batch = writeBatch(db);
+    refs.slice(start, start + batchSize).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+export async function deleteStudents(classId, ids) {
   await ownedClass(classId);
-  const snap = await getDoc(doc(db, 'students', studentId));
-  if (snap.exists()) await deleteDoc(doc(db, 'studentLogins', snap.data().loginKey));
-  await deleteDoc(doc(db, 'students', studentId));
-  return response({ message: '학생을 삭제했습니다.' });
+  const selectedIds = new Set(ids);
+  const students = (await docsWhere('students', 'classId', classId)).filter(student => selectedIds.has(student.id));
+  if (!students.length) return response({ deleted: 0 });
+
+  const [classResults, sessions, tests, recordGroups] = await Promise.all([
+    docsWhere('testResults', 'classId', classId),
+    docsWhere('studentSessions', 'classId', classId),
+    docsWhere('tests', 'classId', classId),
+    Promise.all(students.map(student => docsWhere('studyRecords', 'studentId', student.id))),
+  ]);
+
+  for (const test of tests) {
+    const affected = [...(test.targetStudentIds || []), ...(test.joinedStudentIds || [])]
+      .some(studentId => selectedIds.has(studentId));
+    if (affected) {
+      await updateDoc(doc(db, 'tests', test.id), {
+        targetStudentIds: arrayRemove(...selectedIds),
+        joinedStudentIds: arrayRemove(...selectedIds),
+      });
+    }
+  }
+
+  const refs = [
+    ...recordGroups.flat().map(record => doc(db, 'studyRecords', record.id)),
+    ...classResults.filter(result => selectedIds.has(result.studentId)).map(result => doc(db, 'testResults', result.id)),
+    ...sessions.filter(session => selectedIds.has(session.studentId)).map(session => doc(db, 'studentSessions', session.id)),
+    ...students.map(student => doc(db, 'studentLogins', student.loginKey)),
+    ...students.map(student => doc(db, 'students', student.id)),
+  ];
+  await deleteRefs(refs);
+  return response({ deleted: students.length });
+}
+
+export async function deleteClasses(ids) {
+  const uniqueIds = [...new Set(ids)];
+  const classes = await Promise.all(uniqueIds.map(ownedClass));
+
+  for (const cls of classes) {
+    const [students, wordBooks, tests, results, sessions] = await Promise.all([
+      docsWhere('students', 'classId', cls.id),
+      docsWhere('wordbooks', 'classId', cls.id),
+      docsWhere('tests', 'classId', cls.id),
+      docsWhere('testResults', 'classId', cls.id),
+      docsWhere('studentSessions', 'classId', cls.id),
+    ]);
+    const [recordGroups, wordGroups] = await Promise.all([
+      Promise.all(students.map(student => docsWhere('studyRecords', 'studentId', student.id))),
+      Promise.all(wordBooks.map(book => docsWhere('words', 'wordBookId', book.id))),
+    ]);
+    await deleteRefs([
+      ...recordGroups.flat().map(record => doc(db, 'studyRecords', record.id)),
+      ...results.map(result => doc(db, 'testResults', result.id)),
+      ...sessions.map(session => doc(db, 'studentSessions', session.id)),
+      ...tests.map(test => doc(db, 'tests', test.id)),
+      ...wordGroups.flat().map(word => doc(db, 'words', word.id)),
+      ...wordBooks.map(book => doc(db, 'wordbooks', book.id)),
+      ...students.map(student => doc(db, 'studentLogins', student.loginKey)),
+      ...students.map(student => doc(db, 'students', student.id)),
+    ]);
+    await deleteRefs([doc(db, 'classes', cls.id)]);
+  }
+  return response({ deleted: classes.length });
 }

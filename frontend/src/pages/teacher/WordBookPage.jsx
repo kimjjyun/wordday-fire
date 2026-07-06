@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getWordBook, addWord, bulkAddWords, importCSV, deleteWord } from '../../api/wordbooks';
+import { getWordBook, addWord, bulkAddWords, importCSV, deleteWords } from '../../api/wordbooks';
 import { createTest, createTestWithWords } from '../../api/tests';
 import Layout from '../../components/Layout';
 import LoadingDots from '../../components/LoadingDots';
@@ -47,8 +47,10 @@ export default function WordBookPage() {
   const [importResult,  setImportResult]  = useState(null);
   const [importError,   setImportError]   = useState('');
 
-  const [deletingId, setDeletingId] = useState(null);
-  const [confirmWordId, setConfirmWordId] = useState(null);
+  const [selectedListIds, setSelectedListIds] = useState(new Set());
+  const [confirmWordDelete, setConfirmWordDelete] = useState(false);
+  const [wordDeleteLoading, setWordDeleteLoading] = useState(false);
+  const [wordDeleteError, setWordDeleteError] = useState('');
   const [showAddWords, setShowAddWords] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
   const [testDayFilter, setTestDayFilter] = useState(0);
@@ -112,12 +114,17 @@ export default function WordBookPage() {
     finally { setImportLoading(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
-  const handleDeleteWord = async (wordId) => {
-    setDeletingId(wordId);
-    setConfirmWordId(null);
-    try { await deleteWord(id, wordId); load(); }
-    catch { /* no-op */ }
-    finally { setDeletingId(null); }
+  const handleDeleteWords = async () => {
+    setWordDeleteLoading(true);
+    setWordDeleteError('');
+    try {
+      await deleteWords(id, [...selectedListIds]);
+      setSelectedListIds(new Set());
+      setConfirmWordDelete(false);
+      await load();
+    } catch (error) {
+      setWordDeleteError(error?.message || '단어 삭제 중 오류가 발생했습니다.');
+    } finally { setWordDeleteLoading(false); }
   };
 
   const handleStartTest = async (day) => {
@@ -372,10 +379,38 @@ export default function WordBookPage() {
               {matched.length === 0 ? (
                 <p className="text-[13px] text-gray-300 font-medium text-center py-8">검색 결과 없음</p>
               ) : <>
+              <div className="flex items-center justify-between py-2">
+                <button
+                  onClick={() => {
+                    const allSelected = matched.every(word => selectedListIds.has(word.id));
+                    setSelectedListIds(previous => {
+                      const next = new Set(previous);
+                      matched.forEach(word => allSelected ? next.delete(word.id) : next.add(word.id));
+                      return next;
+                    });
+                    setConfirmWordDelete(false);
+                    setWordDeleteError('');
+                  }}
+                  className="text-[11px] font-bold text-gray-400 hover:text-black transition"
+                >{matched.every(word => selectedListIds.has(word.id)) ? '검색 결과 전체 해제' : `검색 결과 전체 선택 (${matched.length})`}</button>
+                {selectedListIds.size > 0 && <span className="text-[11px] font-bold text-black">{selectedListIds.size}개 선택</span>}
+              </div>
               {shown.map((w, i) => (
                 <div key={w.id}>
                   <div className="flex items-center gap-3 py-3.5">
-                    <span className="text-[11px] font-bold text-gray-200 w-7 text-right shrink-0">{i + 1}</span>
+                    <button
+                      onClick={() => {
+                        setSelectedListIds(previous => {
+                          const next = new Set(previous);
+                          next.has(w.id) ? next.delete(w.id) : next.add(w.id);
+                          return next;
+                        });
+                        setConfirmWordDelete(false);
+                        setWordDeleteError('');
+                      }}
+                      className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition ${selectedListIds.has(w.id) ? 'bg-black border-black' : 'border-gray-200 hover:border-gray-400'}`}
+                      aria-label={`${w.english} 선택`}
+                    >{selectedListIds.has(w.id) && <span className="text-white text-[10px]">✓</span>}</button>
                     <div className="flex-1 min-w-0 flex justify-between items-start">
                       <div>
                         <span className="font-bold text-[15px] text-black tracking-tight">{w.english}</span>
@@ -385,25 +420,6 @@ export default function WordBookPage() {
                       </div>
                       <span className="text-[13px] text-gray-400 font-medium ml-3 shrink-0">{w.korean}</span>
                     </div>
-                    {confirmWordId === w.id ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => handleDeleteWord(w.id)}
-                          disabled={deletingId === w.id}
-                          className="text-[11px] font-bold text-black transition disabled:opacity-40"
-                        >확인</button>
-                        <button
-                          onClick={() => setConfirmWordId(null)}
-                          className="text-[11px] font-bold text-gray-300 hover:text-black transition"
-                        >취소</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmWordId(w.id)}
-                        disabled={deletingId === w.id}
-                        className="text-[11px] font-bold text-gray-300 hover:text-black transition disabled:opacity-40 px-1 shrink-0"
-                      >×</button>
-                    )}
                   </div>
                   {i < shown.length - 1 && <div className="h-px bg-gray-50 ml-10" />}
                 </div>
@@ -415,6 +431,25 @@ export default function WordBookPage() {
                 >
                   더 보기 ({shown.length} / {matched.length})
                 </button>
+              )}
+              {selectedListIds.size > 0 && (
+                <div className="mt-3">
+                  {wordDeleteError && <p className="text-[11px] text-center mb-2">{wordDeleteError}</p>}
+                  {!confirmWordDelete ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmWordDelete(true)} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full">삭제 ({selectedListIds.size}개)</button>
+                      <button onClick={() => setSelectedListIds(new Set())} className="px-4 text-[13px] font-bold text-gray-300">취소</button>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-2xl p-3">
+                      <p className="text-[12px] font-bold text-center mb-2">선택한 단어를 영구 삭제할까요?</p>
+                      <div className="flex gap-2">
+                        <button onClick={handleDeleteWords} disabled={wordDeleteLoading} className="flex-1 bg-black text-white text-[13px] font-bold py-2.5 rounded-full disabled:opacity-40">{wordDeleteLoading ? <LoadingDots label="삭제 중" /> : '영구 삭제'}</button>
+                        <button onClick={() => setConfirmWordDelete(false)} disabled={wordDeleteLoading} className="flex-1 border border-gray-200 text-[13px] font-bold py-2.5 rounded-full">취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               </>}
             </div>
