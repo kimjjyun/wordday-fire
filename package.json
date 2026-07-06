@@ -2,6 +2,7 @@
   "scripts": {
     "install:all": "npm install --prefix frontend",
     "build": "npm run build --prefix frontend",
+    "generate:middle-words": "node scripts/generate-middle-school-words.mjs",
     "emulate": "npm run build && firebase emulators:start",
     "deploy": "npm run build && firebase deploy --project wordday-fire",
     "deploy:hosting": "npm run build && firebase deploy --only hosting --project wordday-fire"
