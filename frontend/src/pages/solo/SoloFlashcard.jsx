@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { RECOMMENDED_WORDS } from '../../data/recommendedWords';
+import { useSwipePager } from '../../utils/displayMode';
 
 function speak(text) {
   if (!window.speechSynthesis) return;
@@ -28,6 +29,17 @@ export default function SoloFlashcard() {
   const [index,   setIndex]   = useState(state?.startIndex ?? 0);
   const [flipped, setFlipped] = useState(false);
 
+  const showMeaning = e => {
+    if (e.target.closest('button')) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setFlipped(true);
+  };
+
+  const hideMeaning = e => {
+    if (e.target.closest('button')) return;
+    setFlipped(false);
+  };
+
   const current = words[index];
   const progress = words.length > 0 ? ((index + 1) / words.length) * 100 : 0;
 
@@ -43,6 +55,13 @@ export default function SoloFlashcard() {
     setFlipped(false);
   }, [index]);
 
+  const { swipeHandlers, swipeStyle } = useSwipePager({
+    onNext: goNext,
+    onPrev: goPrev,
+    canNext: index + 1 < words.length,
+    canPrev: index > 0,
+  });
+
   if (words.length === 0) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
       <p className="text-[11px] font-bold uppercase tracking-widest text-gray-300 mb-4">Empty</p>
@@ -52,7 +71,7 @@ export default function SoloFlashcard() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto overflow-hidden">
       {/* 헤더 */}
       <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
         <button onClick={() => navigate('/solo')} className="text-black font-bold text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition">←</button>
@@ -65,31 +84,22 @@ export default function SoloFlashcard() {
       </div>
 
       {/* 카드 */}
-      <div className="flex-1 flex flex-col justify-between px-5 pb-8 pt-4">
+      <div
+        className="flex-1 flex flex-col justify-between px-5 pb-8 pt-4"
+        style={swipeStyle}
+        {...swipeHandlers}
+      >
         <div className="flex-1 flex items-center">
-          <div style={{ perspective: '1200px' }} className="w-full">
-            <div
-              key={index}
-              onClick={() => setFlipped(f => !f)}
-              style={{
-                transformStyle: 'preserve-3d',
-                transition: 'transform 0.45s cubic-bezier(0.4,0,0.2,1)',
-                transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                position: 'relative', height: '320px', cursor: 'pointer',
-              }}
-            >
-              {/* 앞면 — 영어 */}
-              <div
-                style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
-                className="border border-gray-100 rounded-[28px] flex flex-col items-center justify-center p-8 text-center bg-white"
-              >
+          <div key={index} className="w-full h-[340px] border border-gray-100 rounded-[28px] overflow-hidden bg-white">
+              {/* 윗칸 — 영어 */}
+              <div className="h-1/2 flex flex-col items-center justify-center px-8 text-center">
                 <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-200 mb-2">
                   No.{current.no} · DAY {current.day}
                 </p>
-                <p className="text-5xl font-black tracking-tighter text-black leading-tight mt-4">{current.english}</p>
+                <p className="text-5xl font-black tracking-tighter text-black leading-tight mt-2">{current.english}</p>
                 <button
                   onClick={e => { e.stopPropagation(); speak(current.english); }}
-                  className="mt-8 w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:border-gray-400 transition text-gray-400 hover:text-black"
+                  className="mt-4 w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:border-gray-400 transition text-gray-400 hover:text-black"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
@@ -99,21 +109,33 @@ export default function SoloFlashcard() {
                 </button>
               </div>
 
-              {/* 뒷면 — 한국어 */}
+              {/* 아랫칸 — 누르는 동안 한국어 */}
               <div
-                style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}
-                className="bg-black rounded-[28px] flex flex-col items-center justify-center p-8 text-center"
+                role="button"
+                tabIndex={0}
+                aria-label={`${current.english}의 뜻을 누르는 동안 보기`}
+                onPointerDown={showMeaning}
+                onPointerUp={hideMeaning}
+                onPointerCancel={hideMeaning}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFlipped(true); }
+                }}
+                onKeyUp={e => {
+                  if (e.key === 'Enter' || e.key === ' ') setFlipped(false);
+                }}
+                style={{ touchAction: 'manipulation' }}
+                className="relative h-1/2 border-t border-gray-100 flex flex-col items-center justify-center px-8 text-center cursor-pointer select-none bg-gray-50"
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/30 mb-2">
-                  No.{current.no} · DAY {current.day}
+                <p className={`absolute text-[12px] font-bold text-gray-300 transition-all duration-300 ${flipped ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                  누르는 동안 뜻 보기
                 </p>
-                <p className="text-[13px] font-bold text-white/40 mb-6 tracking-tight">{current.english}</p>
-                <p className="text-5xl font-black tracking-tighter text-white leading-tight">{current.korean}</p>
-                {current.example && (
-                  <p className="text-[12px] text-white/30 mt-6 leading-relaxed font-medium max-w-[240px]">"{current.example}"</p>
-                )}
+                <div aria-hidden={!flipped} className={`transition-all duration-300 ${flipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                  <p className="text-4xl font-black tracking-tighter text-black leading-tight">{current.korean}</p>
+                  {current.example && (
+                    <p className="text-[11px] text-gray-400 mt-4 leading-relaxed font-medium max-w-[260px]">"{current.example}"</p>
+                  )}
+                </div>
               </div>
-            </div>
           </div>
         </div>
 

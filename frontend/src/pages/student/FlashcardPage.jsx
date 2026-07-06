@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTodayWords, submitReview } from '../../api/study';
+import { useSwipePager } from '../../utils/displayMode';
 
 export default function FlashcardPage() {
   const navigate = useNavigate();
@@ -9,6 +10,13 @@ export default function FlashcardPage() {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [done,    setDone]    = useState(false);
+
+  const showMeaning = e => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setFlipped(true);
+  };
+
+  const hideMeaning = () => setFlipped(false);
 
   useEffect(() => {
     getTodayWords().then(r => setWords(r.data)).finally(() => setLoading(false));
@@ -32,6 +40,13 @@ export default function FlashcardPage() {
       setFlipped(false);
     }
   };
+
+  const { swipeHandlers, swipeStyle } = useSwipePager({
+    onNext: handleNext,
+    onPrev: handlePrev,
+    canNext: index + 1 < words.length,
+    canPrev: index > 0,
+  });
 
   // ── 로딩 ─────────────────────────────────────────
   if (loading) return (
@@ -82,7 +97,7 @@ export default function FlashcardPage() {
 
   // ── 메인 플래시카드 ───────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto overflow-hidden">
 
       {/* 상단 헤더 */}
       <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
@@ -104,27 +119,20 @@ export default function FlashcardPage() {
       </div>
 
       {/* 카드 영역 */}
-      <div className="flex-1 flex flex-col justify-between px-5 pb-8 pt-4">
+      <div
+        className="flex-1 flex flex-col justify-between px-5 pb-8 pt-4"
+        style={swipeStyle}
+        {...swipeHandlers}
+      >
 
-        {/* 플립 카드 */}
+        {/* 위: 영어 / 아래: 누르는 동안 뜻 */}
         <div className="flex-1 flex items-center">
-          <div className="flip-scene w-full" onClick={() => setFlipped(f => !f)}>
-            <div
-              key={index}
-              style={{
-                transformStyle: 'preserve-3d',
-                transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                position: 'relative',
-                height: '340px',
-                cursor: 'pointer',
-              }}
-            >
-              {/* 앞면 — 영단어 + 발음기호 */}
-              <div
-                style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
-                className="border border-gray-100 rounded-[28px] flex flex-col items-center justify-center p-8 text-center bg-white"
-              >
+          <div
+            key={index}
+            className="w-full h-[340px] border border-gray-100 rounded-[28px] overflow-hidden bg-white"
+          >
+              {/* 윗칸 — 영단어 + 발음기호 */}
+              <div className="h-1/2 flex flex-col items-center justify-center px-8 text-center">
                 <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-200 mb-6">
                   {current.state === 'new' ? 'New Word' : 'Review'} · {index + 1}/{words.length}
                 </p>
@@ -136,36 +144,35 @@ export default function FlashcardPage() {
                     {current.pronunciation}
                   </p>
                 )}
-                <p className="text-[11px] text-gray-200 mt-6 font-medium">탭해서 뜻 보기</p>
               </div>
 
-              {/* 뒷면 — 한국어 */}
+              {/* 아랫칸 — 누르는 동안 한국어 */}
               <div
-                style={{
-                  backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
-                  transform: 'rotateY(180deg)',
-                  position: 'absolute', inset: 0,
+                role="button"
+                tabIndex={0}
+                aria-label={`${current.english}의 뜻을 누르는 동안 보기`}
+                onPointerDown={showMeaning}
+                onPointerUp={hideMeaning}
+                onPointerCancel={hideMeaning}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFlipped(true); }
                 }}
-                className="bg-black rounded-[28px] flex flex-col items-center justify-center p-8 text-center"
+                onKeyUp={e => {
+                  if (e.key === 'Enter' || e.key === ' ') setFlipped(false);
+                }}
+                style={{ touchAction: 'manipulation' }}
+                className="relative h-1/2 border-t border-gray-100 flex flex-col items-center justify-center px-8 text-center cursor-pointer select-none bg-gray-50"
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/30 mb-4">
-                  {current.english}
+                <p className={`absolute text-[12px] font-bold text-gray-300 transition-all duration-300 ${flipped ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                  누르는 동안 뜻 보기
                 </p>
-                {current.pronunciation && (
-                  <p className="text-[13px] text-white/30 font-medium mb-4 tracking-wide">
-                    {current.pronunciation}
-                  </p>
-                )}
-                <p className="text-5xl font-black tracking-tighter text-white leading-tight">
-                  {current.korean}
-                </p>
-                {current.example && (
-                  <p className="text-[12px] text-white/40 mt-8 leading-relaxed font-medium max-w-[240px]">
-                    "{current.example}"
-                  </p>
-                )}
+                <div aria-hidden={!flipped} className={`transition-all duration-300 ${flipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                  <p className="text-4xl font-black tracking-tighter text-black leading-tight">{current.korean}</p>
+                  {current.example && (
+                    <p className="text-[11px] text-gray-400 mt-4 leading-relaxed font-medium max-w-[260px]">"{current.example}"</p>
+                  )}
+                </div>
               </div>
-            </div>
           </div>
         </div>
 
