@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
@@ -30,11 +33,8 @@ export default defineConfig({
           { name: '학생·교사 로그인', short_name: '로그인', url: '/login', icons: [{ src: '/icons/wordday-192.png', sizes: '192x192' }] },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
-        navigateFallback: '/index.html',
-        cleanupOutdatedCaches: true,
-        importScripts: ['/sw-refresh.js'],
       },
     }),
   ],

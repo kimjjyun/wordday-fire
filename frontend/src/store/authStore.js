@@ -8,10 +8,15 @@ export const useAuthStore = create(
       user: null,   // { id, name, role, classId? }
       login: (token, user) => set({ token, user }),
       updateUser: (patch) => set((s) => ({ user: { ...s.user, ...patch } })),
-      logout: () => {
-        Promise.all([import('firebase/auth'), import('../firebase')])
-          .then(([{ signOut }, { auth }]) => signOut(auth))
-          .catch(() => {});
+      logout: async () => {
+        try {
+          const { disablePushNotifications } = await import('../api/notifications');
+          await disablePushNotifications();
+        } catch { /* 푸시 해제 실패가 로그아웃을 막지 않도록 한다. */ }
+        try {
+          const [{ signOut }, { auth }] = await Promise.all([import('firebase/auth'), import('../firebase')]);
+          await signOut(auth);
+        } catch { /* 로컬 세션은 항상 정리한다. */ }
         set({ token: null, user: null });
       },
     }),

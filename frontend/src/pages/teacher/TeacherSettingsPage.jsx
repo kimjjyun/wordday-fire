@@ -23,7 +23,8 @@ export default function TeacherSettingsPage() {
     <Layout title="WORDDAY" back>
       <div className="pb-8 pt-2">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">Settings</p>
-        <h1 className="text-4xl font-black tracking-tighter">보안 질문</h1>
+        <h1 className="text-4xl font-black tracking-tighter">내 설정</h1>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mt-6 mb-2">보안 질문</p>
         <p className="text-[13px] text-gray-400 my-5">비밀번호를 잊었을 때 사용할 질문과 답변입니다. 답변은 대소문자와 앞뒤 공백을 구분하지 않습니다.</p>
         <form onSubmit={submit} className="space-y-3">
           <select className={inputCls} value={question} onChange={event => setQuestion(event.target.value)}>{SECURITY_QUESTIONS.map(value => <option key={value}>{value}</option>)}</select>

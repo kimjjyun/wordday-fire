@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">Last updated</p>
-          <p className="text-[15px] font-black text-black tracking-tight">2026. 07. 02</p>
+          <p className="text-[15px] font-black text-black tracking-tight">2026. 07. 03</p>
         </div>
 
         <Section title="서비스 소개">
@@ -27,6 +27,7 @@ export default function PrivacyPage() {
             <Li><b>교사 계정:</b> 아이디, 비밀번호의 단방향 해시값, 이름, 학교명, 보안 질문 및 답변의 단방향 해시값</Li>
             <Li><b>학생 계정:</b> 이름, 학번, 비밀번호의 단방향 해시값 — 학급 코드를 통해 교사가 등록</Li>
             <Li><b>학습 데이터:</b> 퀴즈 점수, 테스트 결과</Li>
+            <Li><b>알림 데이터:</b> 알림을 허용한 기기의 푸시 토큰, 사용자 역할 및 학급 식별자</Li>
           </ul>
         </Section>
 
@@ -34,12 +35,14 @@ export default function PrivacyPage() {
           <ul className="space-y-2 list-none">
             <Li>교사·학생 로그인 및 학급 관리 기능 제공</Li>
             <Li>퀴즈 결과 조회 및 학습 현황 확인</Li>
+            <Li>사용자가 허용한 기기에 시험 초대와 학습 알림 제공</Li>
           </ul>
         </Section>
 
         <Section title="브라우저 저장소 사용">
           로그인 상태와 학생이 선택한 학급 코드·학번을 유지하기 위해 브라우저의 로컬·세션 저장소를 사용합니다.
           현재 맞춤형 광고 또는 광고 쿠키는 사용하지 않습니다. 브라우저 저장소를 삭제하면 저장된 로그인 상태와 학습 중 임시 정보가 사라질 수 있습니다.
+          푸시 알림을 허용하면 기기 토큰을 로컬 저장소와 Firestore에 보관하며, 앱 설정에서 알림 등록을 해제할 수 있습니다.
         </Section>
 
         <Section title="정보의 보관 및 파기">
@@ -51,7 +54,7 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="외부 서비스 이용">
-          서비스 운영을 위해 Google Firebase의 Authentication, Firestore, Hosting을 이용합니다.
+          서비스 운영을 위해 Google Firebase의 Authentication, Firestore, Hosting, Cloud Messaging을 이용합니다.
           수집된 정보는 서비스 제공과 법령상 의무 이행 목적 외에는 임의로 제3자에게 판매하거나 제공하지 않습니다.
         </Section>
 

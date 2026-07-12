@@ -36,6 +36,20 @@ npm run deploy
 
 Java는 Firestore 로컬 에뮬레이터를 사용할 때만 필요하며 실제 배포에는 필요하지 않습니다.
 
+## PWA 푸시 알림 테스트
+
+1. Firebase Console의 **프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서**에서 운영용 키 쌍을 생성합니다.
+2. 생성한 공개 키를 `frontend/.env.production`의 `VITE_FIREBASE_VAPID_KEY`에 넣습니다.
+3. Firestore Rules와 Hosting을 배포합니다.
+4. 휴대폰에서 PWA를 홈 화면에 설치하고 상단 종 버튼 → **알림 허용**을 누릅니다.
+5. 발급된 기기 토큰은 `pushTokens` 컬렉션에 자동 등록됩니다. 솔로 사용자는 익명 인증으로 안전하게 등록됩니다.
+
+```env
+VITE_FIREBASE_VAPID_KEY=공개키
+```
+
+iPhone/iPad는 iOS 16.4 이상에서 홈 화면에 설치한 앱으로 실행해야 알림 권한을 요청할 수 있습니다.
+
 ## App Check
 
 Firebase Console에서 웹 앱용 reCAPTCHA Enterprise App Check를 등록한 뒤 `frontend/.env.example`을 참고해

@@ -3,9 +3,29 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useGuestStore } from '../../store/guestStore';
 import { CATEGORIES, RECOMMENDED_WORDS, TOTAL_DAYS } from '../../data/recommendedWords';
 import { trackVisit } from '../../api/stats';
+import PushNotificationMenu from '../../components/PushNotificationMenu';
 
 const DAYS_EN = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
 const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const WORD_VIEW_KEY = 'wordday-word-view';
+
+function LargeWordCard({ word, last }) {
+  const category = CATEGORIES.find(item => item.key === word.category)?.label;
+  return (
+    <article className={`py-6 ${last ? '' : 'border-b border-gray-200'}`}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-black uppercase tracking-widest">DAY {word.day}</span>
+          {category && <span className="border border-gray-300 rounded-full px-2.5 py-1 text-[10px] font-bold text-gray-600">{category}</span>}
+        </div>
+        <span className="text-[12px] font-bold text-gray-400" aria-label={`단어 번호 ${word.no}`}>{String(word.no).padStart(2, '0')}</span>
+      </div>
+      <p className="text-[30px] sm:text-[34px] font-black tracking-[-0.04em] leading-[1.08] text-black break-words">{word.english}</p>
+      <p className="text-[20px] font-bold leading-snug text-black mt-3">{word.korean}</p>
+      {word.example && <p className="text-[15px] font-medium leading-relaxed text-gray-600 mt-4">{word.example}</p>}
+    </article>
+  );
+}
 
 export default function SoloHome() {
   const { name, exit } = useGuestStore();
@@ -14,6 +34,7 @@ export default function SoloHome() {
   const [catFilter, setCatFilter] = useState('all');
   const [dayFilter, setDayFilter] = useState(0);
   const [modal,     setModal]     = useState(null); // 'flashcard' | 'quiz' | null
+  const [wordView,  setWordView]  = useState(() => localStorage.getItem(WORD_VIEW_KEY) || 'normal');
 
   const now    = new Date();
   const dayEn  = DAYS_EN[now.getDay()];
@@ -42,14 +63,20 @@ export default function SoloHome() {
     navigate('/solo/quiz', { state: { category: catFilter, day: day ?? 0 } });
   };
 
+  const changeWordView = value => {
+    setWordView(value);
+    localStorage.setItem(WORD_VIEW_KEY, value);
+  };
+
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-white">
       {/* 헤더 */}
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-5 safe-area-top pb-3 flex items-center">
         <h1 className="flex-1 font-black text-[15px] tracking-tight">WORDDAY</h1>
+        <PushNotificationMenu scope="solo" />
         <button
           onClick={() => { exit(); navigate('/login'); }}
-          className="text-[11px] text-gray-300 hover:text-black transition font-medium"
+          className="text-[11px] text-gray-300 hover:text-black transition font-medium ml-3"
         >나가기</button>
       </div>
       <div className="h-px bg-gray-100" />
@@ -98,8 +125,26 @@ export default function SoloHome() {
 
         {/* 단어 리스트 */}
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">Words</p>
-          <span className="text-[11px] font-bold text-gray-300">{filteredWords.length}개</span>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">Words</p>
+            <span className="text-[11px] font-bold text-gray-300">{filteredWords.length}개</span>
+          </div>
+          <div role="tablist" aria-label="단어 보기 방식" className="flex gap-1.5">
+              {[
+                { key: 'normal', label: '일반' },
+                { key: 'large', label: '큰 글씨' },
+              ].map(item => (
+                <button
+                  key={item.key}
+                  role="tab"
+                  aria-selected={wordView === item.key}
+                  onClick={() => changeWordView(item.key)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition ${
+                    wordView === item.key ? 'bg-black text-white' : 'border border-gray-200 text-gray-400 hover:border-gray-400'
+                  }`}
+                >{item.label}</button>
+              ))}
+          </div>
         </div>
 
         {filteredWords.length === 0 ? (
@@ -109,18 +154,22 @@ export default function SoloHome() {
           </div>
         ) : (
           <>
-            {visible.map((w, i) => (
-              <div key={w.no}>
-                <div className="flex items-baseline justify-between py-3">
-                  <div className="flex items-baseline gap-2.5">
-                    <span className="text-[10px] font-bold text-gray-200 w-8 text-right shrink-0">{w.no}</span>
-                    <span className="font-bold text-[15px] text-black tracking-tight">{w.english}</span>
+            <div id="word-list" className={wordView === 'large' ? 'border-y border-gray-200' : ''}>
+              {wordView === 'large'
+                ? visible.map((word, index) => <LargeWordCard key={word.no} word={word} last={index === visible.length - 1} />)
+                : visible.map((word, index) => (
+                  <div key={word.no}>
+                    <div className="flex items-baseline justify-between py-3">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[10px] font-bold text-gray-200 w-4 text-right shrink-0">{word.no}</span>
+                        <span className="font-bold text-[15px] text-black tracking-tight">{word.english}</span>
+                      </div>
+                      <span className="text-[13px] text-gray-400 font-medium ml-3 pr-4 shrink-0">{word.korean}</span>
+                    </div>
+                    {index < visible.length - 1 && <div className="h-px bg-gray-50" />}
                   </div>
-                  <span className="text-[13px] text-gray-400 font-medium ml-3 shrink-0">{w.korean}</span>
-                </div>
-                {i < visible.length - 1 && <div className="h-px bg-gray-50" />}
-              </div>
-            ))}
+                ))}
+            </div>
 
             {(remaining > 0 || showAll) && (
               <button onClick={() => setShowAll(v => !v)}
@@ -145,6 +194,7 @@ export default function SoloHome() {
             </div>
           </>
         )}
+
       </div>
 
       {/* 긴 목록 탐색 플로팅 버튼 (전체 펼침 상태에서만) */}

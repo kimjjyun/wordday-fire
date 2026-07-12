@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import PushNotificationMenu from './PushNotificationMenu';
 
 export default function Layout({ title, back = true, children }) {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-white">
@@ -17,11 +18,17 @@ export default function Layout({ title, back = true, children }) {
           </button>
         )}
         <h1 className="flex-1 font-black text-[15px] tracking-tight text-black">{title ?? 'WORDDAY'}</h1>
+        <PushNotificationMenu />
         {user && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-gray-400">{user.name}</span>
+          <div className="flex items-center gap-2 min-w-0">
             <button
-              onClick={() => { useAuthStore.getState().logout(); navigate('/login'); }}
+              onClick={() => navigate(user.role === 'teacher' ? '/teacher/settings' : '/student/settings')}
+              className="text-xs font-medium text-gray-400 hover:text-black transition max-w-20 truncate"
+            >
+              {user.name}
+            </button>
+            <button
+              onClick={async () => { await useAuthStore.getState().logout(); navigate('/login'); }}
               className="text-[11px] text-gray-300 hover:text-black transition font-medium"
             >
               로그아웃

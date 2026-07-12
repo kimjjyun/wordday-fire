@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import InstallGuide from './components/InstallGuide';
 import LoadingDots from './components/LoadingDots';
+import PushMessageListener from './components/PushMessageListener';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
@@ -44,6 +45,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <InstallGuide />
+      <PushMessageListener />
       <Suspense fallback={<RouteLoading />}>
         <Routes>
         <Route path="/login"          element={<LoginPage />} />

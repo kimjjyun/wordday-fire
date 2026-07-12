@@ -96,7 +96,7 @@ export default function StudentSettingsPage() {
 
         {/* 로그아웃 */}
         <button
-          onClick={() => { logout(); navigate('/login'); }}
+          onClick={async () => { await logout(); navigate('/login'); }}
           className="w-full border border-gray-200 text-gray-400 font-bold py-4 rounded-full text-[14px] tracking-tight hover:border-gray-400 hover:text-black transition"
         >
           로그아웃
