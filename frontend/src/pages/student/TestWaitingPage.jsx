@@ -10,6 +10,8 @@ export default function TestWaitingPage() {
   const [joined, setJoined] = useState(false);
   const [error,  setError]  = useState('');
   const [testId, setTestId] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [waitingError, setWaitingError] = useState('');
   const autoJoinAttemptedRef = useRef(false);
 
   const rememberTestSession = (roomCode, id) => {
@@ -28,7 +30,7 @@ export default function TestWaitingPage() {
           rememberTestSession(data.roomCode, testId);
           navigate('/student/test/active');
         }
-      } catch { /* 다음 주기에 재시도 */ }
+      } catch { if (!stopped) setWaitingError('시험 상태를 확인하지 못했습니다. 자동으로 다시 연결합니다.'); }
     };
     check();
     const timer = setInterval(check, 2000);
@@ -37,7 +39,7 @@ export default function TestWaitingPage() {
 
   const doJoin = useCallback(async (roomCode) => {
     if (roomCode.length !== 4) { setError('방 코드는 4자리입니다.'); return; }
-    setError('');
+    setError(''); setJoining(true);
     try {
       const { data } = await joinTest(roomCode);
       setTestId(data.testId);
@@ -52,7 +54,7 @@ export default function TestWaitingPage() {
       setJoined(true);
     } catch (err) {
       setError(err.response?.data?.error || '시험에 입장할 수 없습니다.');
-    }
+    } finally { setJoining(false); }
   }, [navigate]);
 
   // 초대 모달에서 자동 입장
@@ -103,9 +105,10 @@ export default function TestWaitingPage() {
 
           <button
             onClick={handleJoin}
-            className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition"
+            disabled={joining}
+            className="w-full bg-black text-white font-bold py-4 rounded-full text-[15px] tracking-tight active:scale-[0.97] transition disabled:opacity-40"
           >
-            입장하기
+            {joining ? '입장 중...' : '입장하기'}
           </button>
         </div>
       ) : (
@@ -122,6 +125,7 @@ export default function TestWaitingPage() {
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-3">Waiting</p>
           <p className="text-3xl font-black tracking-tighter mb-2">참여 완료</p>
           <p className="text-sm text-gray-300 font-medium">선생님이 시작하면 자동으로 넘어가요</p>
+          {waitingError && <p className="text-[12px] text-black font-medium mt-4">{waitingError}</p>}
         </div>
       )}
     </Layout>

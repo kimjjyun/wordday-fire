@@ -33,7 +33,12 @@ export function firebaseError(error, fallback = '오류가 발생했습니다.')
     'auth/weak-password': '비밀번호는 6자 이상이어야 합니다.',
     'auth/too-many-requests': '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
   };
-  const wrapped = new Error(messages[error?.code] || error?.message || fallback);
+  const wrapped = new Error(
+    messages[error?.code]
+    || (error?.code === 'permission-denied' ? fallback : null)
+    || error?.message
+    || fallback
+  );
   wrapped.response = { data: { error: wrapped.message } };
   return wrapped;
 }

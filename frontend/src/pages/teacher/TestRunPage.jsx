@@ -34,6 +34,8 @@ export default function TestRunPage() {
   const [submittedCount, setSubmittedCount] = useState(0);
   const [words, setWords] = useState([]);
   const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     let stopped = false;
@@ -59,13 +61,17 @@ export default function TestRunPage() {
   }, [id]);
 
   const handleStart = async () => {
-    await startTest(id);
-    setStatus('active');
+    setActionError(''); setActionLoading(true);
+    try { await startTest(id); setStatus('active'); }
+    catch (error) { setActionError(error?.message || '테스트를 시작하지 못했습니다. 다시 시도해주세요.'); }
+    finally { setActionLoading(false); }
   };
 
   const handleFinish = async () => {
-    await finishTest(id);
-    navigate(`/teacher/test/${id}/results`);
+    setActionError(''); setActionLoading(true);
+    try { await finishTest(id); navigate(`/teacher/test/${id}/results`); }
+    catch (error) { setActionError(error?.message || '테스트를 종료하지 못했습니다. 다시 시도해주세요.'); }
+    finally { setActionLoading(false); }
   };
 
   return (
@@ -74,6 +80,7 @@ export default function TestRunPage() {
         {loadError && (
           <p className="bg-gray-50 rounded-2xl px-4 py-3 text-[13px] font-medium text-center">{loadError}</p>
         )}
+        {actionError && <p className="bg-gray-50 rounded-2xl px-4 py-3 text-[13px] font-medium text-center">{actionError}</p>}
         {status === 'waiting' && (
           <>
             <div className="border border-gray-100 rounded-2xl p-6 text-center">
@@ -82,7 +89,7 @@ export default function TestRunPage() {
               <div className="h-px bg-gray-100 my-4" />
               <p className="text-[13px] font-medium text-gray-400">입장 학생 <span className="font-black text-black">{studentCount}명</span></p>
             </div>
-            <Button onClick={handleStart} disabled={!roomCode}>테스트 시작</Button>
+            <Button onClick={handleStart} disabled={!roomCode || actionLoading}>{actionLoading ? '시작 중...' : '테스트 시작'}</Button>
           </>
         )}
 
@@ -126,7 +133,7 @@ export default function TestRunPage() {
               </div>
             </div>
 
-            <Button variant="danger" onClick={handleFinish}>테스트 종료 및 결과 보기</Button>
+            <Button variant="danger" onClick={handleFinish} disabled={actionLoading}>{actionLoading ? '종료 중...' : '테스트 종료 및 결과 보기'}</Button>
             <button
               onClick={() => navigate(classId ? `/teacher/classes/${classId}` : '/teacher')}
               className="w-full border border-gray-200 text-gray-500 font-bold py-3.5 rounded-full text-[14px] tracking-tight hover:border-gray-400 hover:text-black transition active:scale-[0.97]"

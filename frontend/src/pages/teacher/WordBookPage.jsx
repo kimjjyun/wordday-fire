@@ -433,7 +433,7 @@ export default function WordBookPage() {
                 </button>
               )}
               {selectedListIds.size > 0 && (
-                <div className="mt-3">
+                <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                   {wordDeleteError && <p className="text-[11px] text-center mb-2">{wordDeleteError}</p>}
                   {!confirmWordDelete ? (
                     <div className="flex gap-2">

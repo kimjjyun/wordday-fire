@@ -49,7 +49,9 @@ export async function joinTest(code) {
   return response({ testId: test.id, roomCode: test.roomCode, status: test.status });
 }
 
-export async function getLiveTest(id) {
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function loadLiveTest(id) {
   const snap = await getDoc(doc(db, 'tests', id));
   if (!snap.exists()) throw new Error('시험을 찾을 수 없습니다.');
   const test = { id: snap.id, ...snap.data() };
@@ -67,6 +69,21 @@ export async function getLiveTest(id) {
   }
   const scores = results.map(result => result.score);
   return response({ ...test, myResult, studentCount: test.joinedStudentIds?.length || 0, submittedCount: currentUser()?.role === 'teacher' ? results.length : (test.submittedCount || 0), words: test.status === 'waiting' ? [] : words.map(word => ({ id: word.id, english: word.english, answer: word.korean })), avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : (test.avg || 0), topScore: scores.length ? Math.max(...scores) : (test.topScore || 0), total: words.length || test.total || 0 });
+}
+
+export async function getLiveTest(id) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await loadLiveTest(id);
+    } catch (error) {
+      lastError = error;
+      // 로그인 직후 새 학생 권한이 Firestore 읽기에 반영될 때까지 잠시 걸릴 수 있다.
+      if (error?.code !== 'permission-denied' || attempt === 2) throw error;
+      await delay(300 * (attempt + 1));
+    }
+  }
+  throw lastError;
 }
 
 export async function saveTestProgress(id, { answers }) {

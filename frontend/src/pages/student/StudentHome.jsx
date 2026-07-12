@@ -42,6 +42,7 @@ export default function StudentHome() {
   const [words,      setWords]      = useState([]);
   const [stats,      setStats]      = useState(null);
   const [loading,    setLoading]    = useState(true);
+  const [loadError,  setLoadError]  = useState('');
   const [showAll,    setShowAll]    = useState(false);
   const [invite,     setInvite]     = useState(null); // { testId, roomCode }
   const [liveTest,   setLiveTest]   = useState(null); // 대기 또는 진행 중인 시험
@@ -51,9 +52,10 @@ export default function StudentHome() {
   const dateStr = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
   useEffect(() => {
-    setLoading(true);
+    setLoading(true); setLoadError('');
     getHomeData()
       .then(({ data }) => { setWords(data.words); setStats(data.stats); })
+      .catch(() => setLoadError('학습 정보를 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.'))
       .finally(() => setLoading(false));
   }, [location.key]);
 
@@ -124,6 +126,12 @@ export default function StudentHome() {
       )}
 
       <div className="pb-8">
+        {loadError && (
+          <div className="mb-5 rounded-2xl bg-gray-50 px-4 py-3 flex items-center gap-3">
+            <p className="flex-1 text-[12px] font-medium text-gray-600">{loadError}</p>
+            <button onClick={() => navigate('/student', { replace: true, state: { retry: Date.now() } })} className="text-[12px] font-bold text-black">다시 시도</button>
+          </div>
+        )}
 
         {/* 날짜 헤더 */}
         <div className="pt-2 pb-5">

@@ -31,12 +31,14 @@ export default function SoloFlashcard() {
 
   const showMeaning = e => {
     if (e.target.closest('button')) return;
+    e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     setFlipped(true);
   };
 
   const hideMeaning = e => {
     if (e.target.closest('button')) return;
+    e.preventDefault();
     setFlipped(false);
   };
 
@@ -117,13 +119,15 @@ export default function SoloFlashcard() {
                 onPointerDown={showMeaning}
                 onPointerUp={hideMeaning}
                 onPointerCancel={hideMeaning}
+                onSelectStart={e => e.preventDefault()}
+                onContextMenu={e => e.preventDefault()}
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFlipped(true); }
                 }}
                 onKeyUp={e => {
                   if (e.key === 'Enter' || e.key === ' ') setFlipped(false);
                 }}
-                style={{ touchAction: 'manipulation' }}
+                style={{ touchAction: 'manipulation', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
                 className="relative h-1/2 border-t border-gray-100 flex flex-col items-center justify-center px-8 text-center cursor-pointer select-none bg-gray-50"
               >
                 <p className={`absolute text-[12px] font-bold text-gray-300 transition-all duration-300 ${flipped ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>

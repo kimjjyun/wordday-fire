@@ -124,5 +124,22 @@ service cloud.firestore {
       allow update: if ownsStudent(resource.data.studentId);
       allow delete: if ownsClass(resource.data.classId);
     }
+
+    match /pushSubscriptions/{uid}/tokens/{tokenId} {
+      allow read, delete: if signedIn() && uid == request.auth.uid;
+      allow create, update: if signedIn() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['token', 'role', 'userId', 'classId', 'updatedAt'])
+        && request.resource.data.token is string
+        && request.resource.data.role in ['student', 'teacher'];
+    }
+
+    match /pushTokens/{tokenId} {
+      allow create, update: if signedIn()
+        && request.resource.data.keys().hasOnly(['token', 'uid', 'role', 'userId', 'classId', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.token is string
+        && request.resource.data.role in ['solo', 'student', 'teacher'];
+      allow read, delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
   }
 }

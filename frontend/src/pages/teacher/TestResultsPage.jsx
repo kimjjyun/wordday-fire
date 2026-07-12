@@ -164,7 +164,7 @@ export default function TestResultsPage() {
               })}
             </div>
             {selectedIds.size > 0 && (
-              <div className="mt-4">
+              <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                 {deleteError && <p className="text-[11px] text-center mb-2">{deleteError}</p>}
                 {!confirmDelete ? (
                   <div className="flex gap-2">

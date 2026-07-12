@@ -1,4 +1,4 @@
-import { signInAnonymously, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { clean, firebaseError, passwordProof, response, sha256, studentLoginKey } from './helpers';
@@ -6,9 +6,29 @@ import { clean, firebaseError, passwordProof, response, sha256, studentLoginKey 
 const teacherKey = username => sha256(`teacher:${clean(username).toLowerCase()}`);
 const answerProof = answer => sha256(`answer:${clean(answer).toLowerCase()}`);
 
+function waitForAuthState(predicate) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('로그인 준비 시간이 초과되었습니다. 다시 시도해주세요.'));
+    }, 5000);
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (!predicate(user)) return;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
 async function freshAnonymousUser() {
-  if (auth.currentUser) await signOut(auth);
-  return (await signInAnonymously(auth)).user;
+  if (auth.currentUser) {
+    await signOut(auth);
+    // 계정 전환 직후 이전 권한으로 Firestore를 읽는 짧은 틈을 막는다.
+    await waitForAuthState(user => user === null);
+  }
+  await signInAnonymously(auth);
+  return waitForAuthState(user => user?.isAnonymous);
 }
 
 export async function teacherRegister({ email: username, password, name, schoolName, securityQuestion, securityAnswer }) {
@@ -46,8 +66,6 @@ export async function teacherLogin({ email: username, password }) {
       claimProof: await passwordProof(password),
       claimedAt: new Date().toISOString(),
     });
-    const loginSnap = await getDoc(loginRef);
-    if (!loginSnap.exists()) throw new Error('교사 정보를 찾을 수 없습니다.');
     await setDoc(doc(db, 'teacherSessions', user.uid), { loginKey: key, teacherId: key, createdAt: new Date().toISOString() });
     const snap = await getDoc(doc(db, 'teachers', key));
     if (!snap.exists()) throw new Error('교사 정보를 찾을 수 없습니다.');
@@ -100,10 +118,11 @@ export async function studentLogin({ classCode, studentCode, password }) {
     });
     const loginSnap = await getDoc(loginRef);
     if (!loginSnap.exists()) throw new Error('로그인 정보를 찾을 수 없습니다.');
-    const classPromise = getDoc(doc(db, 'classes', loginSnap.data().classId));
-    await setDoc(doc(db, 'studentSessions', user.uid), { loginKey: key, studentId: loginSnap.data().studentId, classId: loginSnap.data().classId, createdAt: new Date().toISOString() });
+    const login = loginSnap.data();
+    const classPromise = getDoc(doc(db, 'classes', login.classId));
+    await setDoc(doc(db, 'studentSessions', user.uid), { loginKey: key, studentId: login.studentId, classId: login.classId, createdAt: new Date().toISOString() });
     const [studentSnap, classSnap] = await Promise.all([
-      getDoc(doc(db, 'students', loginSnap.data().studentId)),
+      getDoc(doc(db, 'students', login.studentId)),
       classPromise,
     ]);
     if (!studentSnap.exists() || !classSnap.exists()) throw new Error('학생 정보를 찾을 수 없습니다.');
