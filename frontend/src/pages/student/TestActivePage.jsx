@@ -81,7 +81,7 @@ export default function TestActivePage() {
         );
         const savedScore = parsed.filter(w => savedAnswers[w.id] === w.answer).length;
         const answered = Object.keys(savedAnswers).length;
-        const alreadySubmitted = data.myResult?.status === 'submitted'
+        const alreadySubmitted = ['submitted', 'submittedByStudent'].includes(data.myResult?.status)
           || (!data.myResult?.status && parsed.length > 0 && answered >= parsed.length);
         const nextIndex = parsed.findIndex(w => !savedAnswers[w.id]);
 
@@ -132,8 +132,8 @@ export default function TestActivePage() {
     await pendingSaveRef.current;
     submitAnswers(testId, { answers: ans })
       .then(({ data }) => {
-        setScore(data.score);
-        sessionStorage.setItem('my_score', JSON.stringify({ score: data.score, total: data.total, answered: data.answered }));
+        setScore(score);
+        sessionStorage.setItem('my_score', JSON.stringify({ score, total: allWords.length, answered: data.answered }));
         setSubmitted(true);
         setSaveError('');
       })

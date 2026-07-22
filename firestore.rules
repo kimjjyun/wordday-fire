@@ -126,21 +126,22 @@ service cloud.firestore {
       allow read: if ownsClass(resource.data.classId) || ownsStudent(resource.data.studentId);
       allow create: if ownsStudent(request.resource.data.studentId)
         && studentIn(request.resource.data.classId)
-        && request.resource.data.status == 'inProgress'
+        && request.resource.data.status in ['inProgress', 'submittedByStudent']
         && request.resource.data.testId + '_' + request.resource.data.studentId == id
-        && request.resource.data.keys().hasOnly(['testId', 'studentId', 'classId', 'answers', 'answered', 'status', 'updatedAt']);
-      allow update: if ownsStudent(resource.data.studentId)
+        && request.resource.data.keys().hasOnly(['testId', 'studentId', 'classId', 'answers', 'answered', 'status', 'updatedAt', 'submittedAt']);
+      allow update: if (ownsStudent(resource.data.studentId)
         && resource.data.status == 'inProgress'
-        && request.resource.data.status == 'inProgress'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers', 'answered', 'updatedAt']);
+        && request.resource.data.status in ['inProgress', 'submittedByStudent']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers', 'answered', 'status', 'updatedAt', 'submittedAt']))
+        || (teacher() && ownsClass(resource.data.classId)
+          && request.resource.data.testId == resource.data.testId
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.classId == resource.data.classId
+          && request.resource.data.status == 'submitted'
+          && request.resource.data.score is number
+          && request.resource.data.total is number
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'total', 'answered', 'status', 'scoredAt']));
       allow delete: if ownsClass(resource.data.classId);
-    }
-
-    match /testAnswerKeys/{id} {
-      allow create: if ownsClass(request.resource.data.classId)
-        && request.resource.data.testId == id
-        && request.resource.data.keys().hasOnly(['testId', 'classId', 'wordAnswers', 'createdAt']);
-      allow read, delete: if ownsClass(resource.data.classId);
     }
 
     match /pushSubscriptions/{uid}/tokens/{tokenId} {
