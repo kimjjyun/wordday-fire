@@ -16,14 +16,23 @@ export default function TeacherDashboard() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [pageError, setPageError] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
 
-  const load = () => getClasses().then(r => setClasses(r.data)).finally(() => setLoading(false));
+  const load = () => {
+    setPageError('');
+    return getClasses().then(r => setClasses(r.data)).catch(() => setPageError('학급 정보를 불러오지 못했습니다.')).finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, []);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    await createClass({ name: newName.trim() });
-    setNewName(''); setShowCreate(false); load();
+    setCreateLoading(true); setPageError('');
+    try {
+      await createClass({ name: newName.trim() });
+      setNewName(''); setShowCreate(false); await load();
+    } catch { setPageError('학급을 만들지 못했습니다. 다시 시도해주세요.'); }
+    finally { setCreateLoading(false); }
   };
 
   const toggleSelection = id => {
@@ -82,6 +91,12 @@ export default function TeacherDashboard() {
         )}
 
         <div className="h-px bg-gray-100 mb-5" />
+        {pageError && (
+          <div className="mb-4 rounded-2xl bg-gray-50 px-4 py-3 flex items-center gap-3">
+            <p className="flex-1 text-[12px] font-medium">{pageError}</p>
+            <button onClick={load} className="text-[12px] font-bold">다시 시도</button>
+          </div>
+        )}
 
         {/* 학급 추가 버튼 */}
         {!showCreate ? (
@@ -107,8 +122,9 @@ export default function TeacherDashboard() {
             <div className="flex gap-2">
               <button
                 onClick={handleCreate}
-                className="flex-1 bg-black text-white font-bold py-3.5 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition"
-              >만들기</button>
+                disabled={createLoading}
+                className="flex-1 bg-black text-white font-bold py-3.5 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition disabled:opacity-40"
+              >{createLoading ? '만드는 중...' : '만들기'}</button>
               <button
                 onClick={() => { setShowCreate(false); setNewName(''); }}
                 className="flex-1 bg-white text-black border border-gray-200 font-bold py-3.5 rounded-full text-[14px] tracking-tight active:scale-[0.97] transition"
@@ -178,7 +194,7 @@ export default function TeacherDashboard() {
               </div>
             ))}
             {selectedIds.size > 0 && (
-              <div className="mt-4">
+              <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                 {deleteError && <p className="text-[12px] text-center mb-2">{deleteError}</p>}
                 {!confirmDelete ? (
                   <div className="flex gap-2">

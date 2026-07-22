@@ -33,6 +33,8 @@ export default function ClassDetailPage() {
 
   const [cls,          setCls]          = useState(null);
   const [loading,      setLoading]      = useState(true);
+  const [pageError,    setPageError]    = useState('');
+  const [testLoadError, setTestLoadError] = useState('');
   const [showAddWb,    setShowAddWb]    = useState(false);
   const [showBulk,     setShowBulk]     = useState(false);
   const [bulkTab,      setBulkTab]      = useState('direct');
@@ -43,7 +45,6 @@ export default function ClassDetailPage() {
   const [confirmWbDelete, setConfirmWbDelete] = useState(false);
   const [wbDeleteLoading, setWbDeleteLoading] = useState(false);
   const [wbDeleteError, setWbDeleteError] = useState('');
-  const [studentSort,  setStudentSort]  = useState('code'); // 'code' | 'name'
   const [rows,         setRows]         = useState([{ name: '', studentCode: '', password: '' }]);
   const [directMsg,    setDirectMsg]    = useState('');
   const [directLoading, setDirectLoading] = useState(false);
@@ -136,11 +137,17 @@ export default function ClassDetailPage() {
     }
   };
 
-  const load = () => getClass(id).then(r => setCls(r.data)).finally(() => setLoading(false));
+  const load = () => {
+    setPageError('');
+    return getClass(id).then(r => setCls(r.data)).catch(() => setPageError('학급 정보를 불러오지 못했습니다.')).finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, [id]);
   useEffect(() => {
-    getClassTestHistory(id).then(r => setTestHistory(r.data)).catch(() => {});
-    getClassOpenTests(id).then(r => setOpenTests(r.data)).catch(() => {});
+    setTestLoadError('');
+    Promise.all([
+      getClassTestHistory(id).then(r => setTestHistory(r.data)),
+      getClassOpenTests(id).then(r => setOpenTests(r.data)),
+    ]).catch(() => setTestLoadError('테스트 목록 일부를 불러오지 못했습니다.'));
   }, [id]);
 
   const toggleTestSelection = (testId) => {
@@ -313,11 +320,16 @@ export default function ClassDetailPage() {
   if (loading || !cls) return (
     <Layout title="WORDDAY" back>
       <div className="flex items-center justify-center py-20">
-        <div className="flex gap-1.5">
+        {pageError ? (
+          <div className="text-center">
+            <p className="text-[13px] font-medium mb-4">{pageError}</p>
+            <button onClick={() => { setLoading(true); load(); }} className="bg-black text-white rounded-full px-6 py-3 text-[13px] font-bold">다시 시도</button>
+          </div>
+        ) : <div className="flex gap-1.5">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-200 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
-        </div>
+        </div>}
       </div>
     </Layout>
   );
@@ -549,6 +561,7 @@ export default function ClassDetailPage() {
       )}
 
       <div className="pb-8">
+        {testLoadError && <p className="mb-4 bg-gray-50 rounded-2xl px-4 py-3 text-[12px] font-medium text-center">{testLoadError}</p>}
 
         {/* 학급 이름 + 코드 */}
         <div className="pt-2 pb-5">
@@ -666,20 +679,9 @@ export default function ClassDetailPage() {
             <p className="text-[13px] text-gray-300 font-medium py-4">등록된 학생이 없습니다</p>
           ) : (
             <div>
-              {/* 정렬 토글 */}
-              <div className="flex gap-1 mb-2">
-                {[['code','번호순'], ['name','가나다순']].map(([k, l]) => (
-                  <button key={k} onClick={() => setStudentSort(k)}
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full transition ${
-                      studentSort === k ? 'bg-black text-white' : 'border border-gray-200 text-gray-300 hover:border-gray-400'
-                    }`}>{l}
-                  </button>
-                ))}
-              </div>
               <div className="max-h-72 overflow-y-auto">
-                {[...(cls.students)].sort((a, b) => studentSort === 'name'
-                  ? a.name.localeCompare(b.name, 'ko')
-                  : (parseInt(a.studentCode) || 0) - (parseInt(b.studentCode) || 0) || a.studentCode.localeCompare(b.studentCode)
+                {[...(cls.students)].sort((a, b) =>
+                  (parseInt(a.studentCode) || 0) - (parseInt(b.studentCode) || 0) || a.studentCode.localeCompare(b.studentCode)
                 ).map((s, i, arr) => {
                   const isSelected = selectedIds.has(s.id);
                   const isEditing  = editForm?.id === s.id;
@@ -766,9 +768,9 @@ export default function ClassDetailPage() {
                 })}
               </div>
 
-              {/* 선택 시 액션 바 */}
+              {/* 선택 시 액션 바: 긴 목록에서도 바로 보이도록 화면 하단에 고정 */}
               {selectedIds.size > 0 && !editForm && (
-                <div className="mt-3">
+                <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                   {studentDeleteError && <p className="text-[11px] text-center mb-2">{studentDeleteError}</p>}
                   {!confirmStudentDelete ? (
                     <div className="flex gap-2">
@@ -893,7 +895,7 @@ export default function ClassDetailPage() {
                 </div>
               ))}
               {selectedWbIds.size > 0 && (
-                <div className="mt-3">
+                <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                   {wbDeleteError && <p className="text-[11px] text-center mb-2">{wbDeleteError}</p>}
                   {!confirmWbDelete ? (
                     <div className="flex gap-2">
@@ -959,7 +961,7 @@ export default function ClassDetailPage() {
                 ))}
               </div>
               {selectedOpenTestIds.size > 0 && (
-                <div className="mt-3">
+                <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                   {openDeleteError && <p className="text-[11px] text-center mb-2">{openDeleteError}</p>}
                   {!confirmOpenDelete ? (
                     <div className="flex gap-2">
@@ -1043,7 +1045,7 @@ export default function ClassDetailPage() {
                 })}
               </div>
               {selectedTestIds.size > 0 && (
-                <div className="mt-3">
+                <div className="fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[480px] bg-white border border-gray-200 shadow-xl rounded-[22px] p-3 safe-area-bottom">
                   {testDeleteError && <p className="text-[11px] text-black text-center mb-2">{testDeleteError}</p>}
                   {!confirmTestDelete ? (
                     <div className="flex gap-2">

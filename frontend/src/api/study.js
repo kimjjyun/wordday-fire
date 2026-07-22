@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { docsWhere, now, response } from './helpers';
@@ -54,9 +54,12 @@ function nextReview(record, rating) {
 export async function submitReview({ wordId, rating }) {
   const student = currentStudent();
   const ref = doc(db, 'studyRecords', `${student.id}_${wordId}`);
-  const snap = await getDoc(ref);
-  const updated = nextReview(snap.exists() ? snap.data() : {}, Number(rating));
-  await setDoc(ref, { ...updated, studentId: student.id, wordId }, { merge: true });
+  let updated;
+  await runTransaction(db, async transaction => {
+    const snap = await transaction.get(ref);
+    updated = nextReview(snap.exists() ? snap.data() : {}, Number(rating));
+    transaction.set(ref, { ...updated, studentId: student.id, wordId }, { merge: true });
+  });
   return response(updated);
 }
 

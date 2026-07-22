@@ -30,7 +30,7 @@ function LargeWordCard({ word, last }) {
 export default function SoloHome() {
   const { name, exit } = useGuestStore();
   const navigate = useNavigate();
-  const [showAll,   setShowAll]   = useState(false);
+  const [visibleCount, setVisibleCount] = useState(5);
   const [catFilter, setCatFilter] = useState('all');
   const [dayFilter, setDayFilter] = useState(0);
   const [modal,     setModal]     = useState(null); // 'flashcard' | 'quiz' | null
@@ -49,9 +49,8 @@ export default function SoloHome() {
     return true;
   }), [catFilter, dayFilter]);
 
-  const PREVIEW   = 5;
-  const visible   = showAll ? filteredWords : filteredWords.slice(0, PREVIEW);
-  const remaining = Math.max(0, filteredWords.length - PREVIEW);
+  const visible   = filteredWords.slice(0, visibleCount);
+  const remaining = Math.max(0, filteredWords.length - visibleCount);
 
   const startFlashcard = (day) => {
     setModal(null);
@@ -96,7 +95,7 @@ export default function SoloHome() {
         {/* 카테고리 필터 */}
         <div className="flex flex-wrap gap-1.5 mb-3">
           {[{ key: 'all', label: '전체' }, ...CATEGORIES].map(c => (
-            <button key={c.key} onClick={() => { setCatFilter(c.key); setShowAll(false); }}
+            <button key={c.key} onClick={() => { setCatFilter(c.key); setVisibleCount(5); }}
               className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition ${
                 catFilter === c.key ? 'bg-black text-white' : 'border border-gray-200 text-gray-400 hover:border-gray-400'
               }`}
@@ -108,13 +107,13 @@ export default function SoloHome() {
         <div className="flex items-center gap-2 mb-4">
           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300 shrink-0">DAY</span>
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <button onClick={() => { setDayFilter(0); setShowAll(false); }}
+            <button onClick={() => { setDayFilter(0); setVisibleCount(5); }}
               className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition ${
                 dayFilter === 0 ? 'bg-black text-white' : 'border border-gray-200 text-gray-400 hover:border-gray-400'
               }`}
             >전체</button>
             {[...Array(TOTAL_DAYS)].map((_, i) => (
-              <button key={i + 1} onClick={() => { setDayFilter(i + 1); setShowAll(false); }}
+              <button key={i + 1} onClick={() => { setDayFilter(i + 1); setVisibleCount(5); }}
                 className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition ${
                   dayFilter === i + 1 ? 'bg-black text-white' : 'border border-gray-200 text-gray-400 hover:border-gray-400'
                 }`}
@@ -171,14 +170,14 @@ export default function SoloHome() {
                 ))}
             </div>
 
-            {(remaining > 0 || showAll) && (
-              <button onClick={() => setShowAll(v => !v)}
+            {(remaining > 0 || visibleCount > 5) && (
+              <button onClick={() => setVisibleCount(v => v > 5 && remaining === 0 ? 5 : Math.min(v + 50, filteredWords.length))}
                 className="w-full flex items-center justify-between border border-gray-100 rounded-full px-5 py-3 mt-3 hover:border-gray-300 transition"
               >
                 <span className="text-[13px] font-medium text-gray-400">
-                  {showAll ? '접기' : `+${remaining}개 더 보기`}
+                  {remaining > 0 ? `+${remaining}개 더 보기` : '처음 5개만 보기'}
                 </span>
-                <span className="text-gray-400 text-sm">{showAll ? '−' : '+'}</span>
+                <span className="text-gray-400 text-sm">{remaining > 0 ? '+' : '−'}</span>
               </button>
             )}
 
@@ -198,7 +197,7 @@ export default function SoloHome() {
       </div>
 
       {/* 긴 목록 탐색 플로팅 버튼 (전체 펼침 상태에서만) */}
-      {showAll && filteredWords.length > PREVIEW && (
+      {visibleCount > 50 && filteredWords.length > 50 && (
         <div className="fixed bottom-5 right-5 z-40 flex flex-col gap-2">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -211,7 +210,7 @@ export default function SoloHome() {
             aria-label="맨 아래로"
           >↓</button>
           <button
-            onClick={() => { setShowAll(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            onClick={() => { setVisibleCount(5); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             className="w-11 h-11 rounded-full bg-white border border-gray-200 text-gray-500 shadow-lg flex items-center justify-center text-[11px] font-bold active:scale-90 transition"
             aria-label="접기"
           >접기</button>

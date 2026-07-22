@@ -123,6 +123,7 @@ export default function LoginPage() {
           {(tab === 'teacher' || tab === 'register') && <input className={inputCls} placeholder="교사 아이디" value={form.email} onChange={set('email')} required />}
           {tab === 'student' && <>
             <input className={inputCls} autoComplete="organization" placeholder="학급 코드" value={form.classCode} onChange={event => setForm(value => ({ ...value, classCode: event.target.value.toUpperCase() }))} required />
+            <p className="text-[11px] text-gray-400 px-1 -mt-1">선생님에게 받은 6자리 학급 코드를 입력하세요.</p>
             <input className={inputCls} autoComplete="username" placeholder="학번" value={form.studentCode} onChange={set('studentCode')} required />
           </>}
           <input className={inputCls} type="password" autoComplete={tab === 'register' ? 'new-password' : 'current-password'} minLength={tab === 'register' ? 8 : 4} placeholder={tab === 'register' ? '비밀번호 (8자 이상)' : '비밀번호'} value={form.password} onChange={set('password')} required />

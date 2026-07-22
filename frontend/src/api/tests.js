@@ -1,5 +1,5 @@
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { clean, docsWhere, now, response } from './helpers';
 import { bulkAddWords, deleteWordBook, loadWordBookWords } from './wordbooks';
@@ -29,12 +29,26 @@ export async function finishTest(id) {
   if (!testSnap.exists()) throw new Error('시험을 찾을 수 없습니다.');
   const test = { id: testSnap.id, ...testSnap.data() };
   const results = await resultsForTest(test.classId, id);
-  const scores = results.map(result => result.score);
+  const words = await loadWordBookWords(test.wordBookId);
+  const scored = results.map(result => {
+    const answers = result.answers || {};
+    const score = words.filter(word => clean(answers[word.id]) === clean(word.korean)).length;
+    const answered = Object.values(answers).filter(value => clean(value)).length;
+    return { result, score, answered };
+  });
+  await Promise.all(scored.map(({ result, score, answered }) => updateDoc(doc(db, 'testResults', result.id), {
+    score,
+    total: words.length,
+    answered,
+    status: 'submitted',
+    scoredAt: now(),
+  })));
+  const scores = scored.map(item => item.score);
   const summary = {
-    status: 'finished', finishedAt: now(), submittedCount: results.length,
+    status: 'finished', finishedAt: now(), submittedCount: scored.length,
     avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : 0,
     topScore: scores.length ? Math.max(...scores) : 0,
-    total: results[0]?.total || 0,
+    total: words.length,
   };
   await updateDoc(doc(db, 'tests', id), summary);
   return response({ id, ...summary });
@@ -49,7 +63,9 @@ export async function joinTest(code) {
   return response({ testId: test.id, roomCode: test.roomCode, status: test.status });
 }
 
-export async function getLiveTest(id) {
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function loadLiveTest(id) {
   const snap = await getDoc(doc(db, 'tests', id));
   if (!snap.exists()) throw new Error('시험을 찾을 수 없습니다.');
   const test = { id: snap.id, ...snap.data() };
@@ -65,8 +81,23 @@ export async function getLiveTest(id) {
       if (error?.code !== 'permission-denied') throw error;
     }
   }
-  const scores = results.map(result => result.score);
+  const scores = results.filter(result => typeof result.score === 'number').map(result => result.score);
   return response({ ...test, myResult, studentCount: test.joinedStudentIds?.length || 0, submittedCount: currentUser()?.role === 'teacher' ? results.length : (test.submittedCount || 0), words: test.status === 'waiting' ? [] : words.map(word => ({ id: word.id, english: word.english, answer: word.korean })), avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 : (test.avg || 0), topScore: scores.length ? Math.max(...scores) : (test.topScore || 0), total: words.length || test.total || 0 });
+}
+
+export async function getLiveTest(id) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await loadLiveTest(id);
+    } catch (error) {
+      lastError = error;
+      // 로그인 직후 새 학생 권한이 Firestore 읽기에 반영될 때까지 잠시 걸릴 수 있다.
+      if (error?.code !== 'permission-denied' || attempt === 2) throw error;
+      await delay(300 * (attempt + 1));
+    }
+  }
+  throw lastError;
 }
 
 export async function saveTestProgress(id, { answers }) {
@@ -83,13 +114,17 @@ export async function saveTestProgress(id, { answers }) {
 
 export async function submitAnswers(id, { answers }) {
   const student = currentUser();
-  const testSnap = await getDoc(doc(db, 'tests', id));
-  const test = testSnap.data();
-  const words = await loadWordBookWords(test.wordBookId);
-  const score = words.filter(word => clean(answers[word.id]) === clean(word.korean)).length;
   const answered = Object.values(answers).filter(value => clean(value)).length;
-  await setDoc(doc(db, 'testResults', `${id}_${student.id}`), { testId: id, studentId: student.id, classId: student.classId, answers, score, answered, total: words.length, status: 'submitted', submittedAt: now() });
-  return response({ score, total: words.length });
+  await setDoc(doc(db, 'testResults', `${id}_${student.id}`), {
+    testId: id,
+    studentId: student.id,
+    classId: student.classId,
+    answers,
+    answered,
+    status: 'submittedByStudent',
+    submittedAt: now(),
+  });
+  return response({ submitted: true, answered });
 }
 
 export async function getResults(id) {

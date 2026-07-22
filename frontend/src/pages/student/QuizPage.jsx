@@ -28,10 +28,15 @@ export default function QuizPage() {
   const [wrongList, setWrongList] = useState([]);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [failedReview, setFailedReview] = useState(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   useEffect(() => {
     getTodayWords()
       .then(r => { setQuestions(buildQuestions(r.data)); })
+      .catch(() => setLoadError('퀴즈 단어를 불러오지 못했습니다.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -43,7 +48,10 @@ export default function QuizPage() {
     const correct = opt === q.answer;
     if (correct) setScore(s => s + 1);
     else setWrongList(w => [...w, q.word]);
-    submitReview({ wordId: q.word.id, rating: correct ? 4 : 1 }).catch(() => {});
+    const review = { wordId: q.word.id, rating: correct ? 4 : 1 };
+    submitReview(review)
+      .then(() => { setSaveError(''); setFailedReview(null); })
+      .catch(() => { setSaveError('학습 기록을 저장하지 못했습니다.'); setFailedReview(review); });
     setTimeout(() => {
       if (index + 1 >= questions.length) setDone(true);
       else { setIndex(i => i + 1); setSelected(null); }
@@ -63,6 +71,14 @@ export default function QuizPage() {
           <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-200 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
         ))}
       </div>
+    </div>
+  );
+
+  if (loadError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
+      <p className="text-2xl font-black tracking-tighter mb-2">불러오지 못했어요</p>
+      <p className="text-sm text-gray-400 mb-8">{loadError}</p>
+      <button onClick={() => window.location.reload()} className="bg-black text-white font-bold py-4 px-10 rounded-full">다시 시도</button>
     </div>
   );
 
@@ -129,10 +145,22 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto">
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+          <div className="bg-white w-full max-w-lg rounded-t-[28px] px-6 pt-6 pb-10">
+            <h2 className="text-2xl font-black tracking-tighter mb-2">퀴즈를 나갈까요?</h2>
+            <p className="text-[13px] text-gray-400 font-medium mb-7">지금까지 저장된 학습 기록은 유지됩니다.</p>
+            <div className="space-y-2.5">
+              <button onClick={() => navigate('/student')} className="w-full bg-black text-white font-bold py-4 rounded-full">나가기</button>
+              <button onClick={() => setShowExitConfirm(false)} className="w-full border border-gray-200 font-bold py-4 rounded-full">계속 풀기</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 헤더 */}
       <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
         <button
-          onClick={() => navigate('/student')}
+          onClick={() => setShowExitConfirm(true)}
           className="text-black font-bold text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
         >←</button>
         <div className="flex-1">
@@ -149,6 +177,15 @@ export default function QuizPage() {
       </div>
 
       <div className="flex-1 flex flex-col px-5 pb-8 pt-6">
+        {saveError && (
+          <div className="mb-3 rounded-2xl bg-gray-50 px-4 py-3 flex items-center gap-3">
+            <p className="flex-1 text-[12px] font-medium">{saveError}</p>
+            <button
+              onClick={() => failedReview && submitReview(failedReview).then(() => { setSaveError(''); setFailedReview(null); }).catch(() => {})}
+              className="text-[12px] font-bold"
+            >다시 시도</button>
+          </div>
+        )}
         {/* 단어 카드 */}
         <div className="flex-1 flex items-center mb-8">
           <div className="w-full border border-gray-100 rounded-[28px] flex flex-col items-center justify-center p-8 text-center gap-6" style={{ minHeight: '200px' }}>

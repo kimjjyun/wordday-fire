@@ -32,6 +32,9 @@ export default function TestActivePage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [exiting, setExiting]             = useState(false);
   const [exitError, setExitError]         = useState('');
+  const [loadError, setLoadError]         = useState('');
+  const [saveError, setSaveError]         = useState('');
+  const [submitError, setSubmitError]     = useState('');
 
   const answersRef   = useRef({});
   const wordsRef     = useRef([]);
@@ -78,7 +81,7 @@ export default function TestActivePage() {
         );
         const savedScore = parsed.filter(w => savedAnswers[w.id] === w.answer).length;
         const answered = Object.keys(savedAnswers).length;
-        const alreadySubmitted = data.myResult?.status === 'submitted'
+        const alreadySubmitted = ['submitted', 'submittedByStudent'].includes(data.myResult?.status)
           || (!data.myResult?.status && parsed.length > 0 && answered >= parsed.length);
         const nextIndex = parsed.findIndex(w => !savedAnswers[w.id]);
 
@@ -96,7 +99,7 @@ export default function TestActivePage() {
           sessionStorage.setItem('my_score', JSON.stringify({ score: savedScore, total: parsed.length, answered }));
         }
       } catch {
-        navigate('/student', { replace: true });
+        if (!stopped) setLoadError('시험 정보를 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
       }
     };
 
@@ -125,10 +128,19 @@ export default function TestActivePage() {
     const score = allWords.filter(w => ans[w.id] === w.answer).length;
     sessionStorage.setItem('my_score', JSON.stringify({ score, total: allWords.length, answered }));
     const testId = sessionStorage.getItem('test_id');
+    setSubmitError('');
     await pendingSaveRef.current;
     submitAnswers(testId, { answers: ans })
-      .then(() => setSubmitted(true))
-      .catch(() => { submittedRef.current = false; });
+      .then(({ data }) => {
+        setScore(score);
+        sessionStorage.setItem('my_score', JSON.stringify({ score, total: allWords.length, answered: data.answered }));
+        setSubmitted(true);
+        setSaveError('');
+      })
+      .catch(() => {
+        submittedRef.current = false;
+        setSubmitError('답안을 제출하지 못했습니다. 아래 버튼으로 다시 시도해주세요.');
+      });
   };
 
   const handleExitConfirm = async () => {
@@ -157,7 +169,9 @@ export default function TestActivePage() {
     pendingSaveRef.current = saveTestProgress(
       sessionStorage.getItem('test_id'),
       { answers: newAnswers }
-    ).catch(() => {});
+    ).then(() => setSaveError('')).catch(() => {
+      setSaveError('진행 상황 저장이 잠시 지연되고 있습니다. 다음 답 또는 제출 때 다시 저장합니다.');
+    });
 
     setAnswers(newAnswers);
     setResults(r => ({ ...r, [word.id]: isCorrect ? 'correct' : 'wrong' }));
@@ -176,6 +190,14 @@ export default function TestActivePage() {
 
   const currentWord = words[currentIndex];
   const totalAnswered = Object.keys(answers).length;
+
+  if (loadError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
+      <p className="text-2xl font-black tracking-tighter mb-2">시험을 불러오지 못했어요</p>
+      <p className="text-sm text-gray-400 mb-8">{loadError}</p>
+      <button onClick={() => window.location.reload()} className="bg-black text-white font-bold py-4 px-10 rounded-full">다시 시도</button>
+    </div>
+  );
 
   if (words.length === 0) return (
     <div className="min-h-screen flex items-center justify-center bg-white max-w-lg mx-auto">
@@ -244,6 +266,12 @@ export default function TestActivePage() {
       </div>
 
       <div className="flex-1 flex flex-col px-5 pb-8 pt-1">
+        {(saveError || submitError) && (
+          <div className="mb-3 rounded-2xl bg-gray-50 px-4 py-3 text-center">
+            <p className="text-[12px] font-medium text-black">{submitError || saveError}</p>
+            {submitError && <button onClick={doSubmit} className="text-[12px] font-black mt-2">제출 다시 시도</button>}
+          </div>
+        )}
 
         {/* 현재 문제 */}
         {currentWord && !submitted && (

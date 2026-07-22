@@ -10,6 +10,10 @@ export default function FlashcardPage() {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [done,    setDone]    = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const showMeaning = e => {
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -19,7 +23,10 @@ export default function FlashcardPage() {
   const hideMeaning = () => setFlipped(false);
 
   useEffect(() => {
-    getTodayWords().then(r => setWords(r.data)).finally(() => setLoading(false));
+    getTodayWords()
+      .then(r => setWords(r.data))
+      .catch(() => setLoadError('오늘의 단어를 불러오지 못했습니다.'))
+      .finally(() => setLoading(false));
   }, []);
 
   const current  = words[index];
@@ -31,13 +38,17 @@ export default function FlashcardPage() {
     setFlipped(false);
   };
 
-  const handleNext = () => {
-    if (current) submitReview({ wordId: current.id, rating: 2 }).catch(() => {});
-    if (index + 1 >= words.length) {
-      setDone(true);
-    } else {
-      setIndex(i => i + 1);
-      setFlipped(false);
+  const handleNext = async () => {
+    if (!current || saving) return;
+    setSaving(true); setSaveError('');
+    try {
+      await submitReview({ wordId: current.id, rating: 2 });
+      if (index + 1 >= words.length) setDone(true);
+      else { setIndex(i => i + 1); setFlipped(false); }
+    } catch {
+      setSaveError('학습 기록을 저장하지 못했습니다. 다시 눌러주세요.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -63,6 +74,14 @@ export default function FlashcardPage() {
   );
 
   // ── 단어 없음 ──────────────────────────────────────
+  if (loadError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
+      <p className="text-2xl font-black tracking-tighter mb-2">불러오지 못했어요</p>
+      <p className="text-sm text-gray-400 mb-8">{loadError}</p>
+      <button onClick={() => window.location.reload()} className="bg-black text-white font-bold py-4 px-10 rounded-full">다시 시도</button>
+    </div>
+  );
+
   if (words.length === 0) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white max-w-lg mx-auto px-6 text-center">
       <p className="text-[11px] font-bold uppercase tracking-widest text-gray-300 mb-6">Done</p>
@@ -98,11 +117,23 @@ export default function FlashcardPage() {
   // ── 메인 플래시카드 ───────────────────────────────
   return (
     <div className="min-h-screen flex flex-col bg-white max-w-lg mx-auto overflow-hidden">
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+          <div className="bg-white w-full max-w-lg rounded-t-[28px] px-6 pt-6 pb-10">
+            <h2 className="text-2xl font-black tracking-tighter mb-2">학습을 나갈까요?</h2>
+            <p className="text-[13px] text-gray-400 font-medium mb-7">완료한 단어까지 저장되어 다음 학습에 반영됩니다.</p>
+            <div className="space-y-2.5">
+              <button onClick={() => navigate('/student')} className="w-full bg-black text-white font-bold py-4 rounded-full">나가기</button>
+              <button onClick={() => setShowExitConfirm(false)} className="w-full border border-gray-200 font-bold py-4 rounded-full">계속 보기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 상단 헤더 */}
       <div className="px-5 safe-area-top pb-3 flex items-center gap-4">
         <button
-          onClick={() => navigate('/student')}
+          onClick={() => setShowExitConfirm(true)}
           className="text-black font-bold text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
         >←</button>
         <div className="flex-1">
@@ -178,6 +209,7 @@ export default function FlashcardPage() {
 
         {/* 이전 / 다음 버튼 */}
         <div className="mt-6 grid grid-cols-2 gap-2.5">
+          {saveError && <p className="col-span-2 text-[12px] font-medium text-center text-black">{saveError}</p>}
           <button
             onClick={handlePrev}
             disabled={index === 0}
@@ -188,10 +220,11 @@ export default function FlashcardPage() {
           </button>
           <button
             onClick={handleNext}
+            disabled={saving}
             className="py-4 rounded-full font-bold text-[15px] tracking-tight transition active:scale-[0.97]
-              bg-black text-white"
+              bg-black text-white disabled:opacity-40"
           >
-            {index + 1 >= words.length ? '완료' : '다음 →'}
+            {saving ? '저장 중...' : index + 1 >= words.length ? '완료' : '다음 →'}
           </button>
         </div>
       </div>
