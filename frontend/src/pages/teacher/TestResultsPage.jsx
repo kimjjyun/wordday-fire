@@ -18,13 +18,21 @@ export default function TestResultsPage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState('');
   const [copied, setCopied] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
-  const load = () => getResults(id).then(r => setData(r.data)).finally(() => setLoading(false));
+  const load = () => {
+    setPageError('');
+    setLoading(true);
+    return getResults(id)
+      .then(r => setData(r.data))
+      .catch(() => setPageError('테스트 결과를 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.'))
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, [id]);
 
   const handleDelete = async () => {
@@ -67,6 +75,15 @@ export default function TestResultsPage() {
             <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-200 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>
+      </div>
+    </Layout>
+  );
+
+  if (pageError || !data) return (
+    <Layout title="테스트 결과" back>
+      <div className="py-20 text-center">
+        <p className="text-[15px] font-bold">{pageError || '결과를 찾을 수 없습니다.'}</p>
+        <button onClick={load} className="mt-5 border border-gray-200 rounded-full px-5 py-3 text-[13px] font-bold">다시 시도</button>
       </div>
     </Layout>
   );

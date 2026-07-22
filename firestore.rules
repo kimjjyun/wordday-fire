@@ -29,7 +29,8 @@ service cloud.firestore {
         || (signedIn()
           && request.resource.data.currentAnswerProof == resource.data.securityAnswerHash
           && request.resource.data.passwordHash == request.resource.data.newPasswordHash
-          && request.resource.data.teacherUid == null)
+          && request.resource.data.teacherUid == null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentAnswerProof', 'newPasswordHash', 'passwordHash', 'teacherUid']))
         || (teacher() && loginKey == teacherSession().loginKey);
       allow get: if signedIn() && resource.data.teacherUid == request.auth.uid;
     }
@@ -75,7 +76,8 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentUid', 'claimProof', 'claimedAt']))
         || (signedIn() && resource.data.studentUid == request.auth.uid
           && request.resource.data.currentProof == resource.data.passwordHash
-          && request.resource.data.passwordHash == request.resource.data.newPasswordHash);
+          && request.resource.data.passwordHash == request.resource.data.newPasswordHash
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentProof', 'newPasswordHash', 'passwordHash', 'claimProof']));
       allow delete: if ownsClass(resource.data.classId);
     }
 
@@ -114,15 +116,31 @@ service cloud.firestore {
       allow update: if ownsClass(resource.data.classId)
         || (studentIn(resource.data.classId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinedStudentIds'])
+          && request.resource.data.joinedStudentIds.hasAll(resource.data.joinedStudentIds)
+          && request.resource.data.joinedStudentIds.size() <= resource.data.joinedStudentIds.size() + 1
           && request.resource.data.joinedStudentIds.hasAll([session().studentId]));
       allow delete: if ownsClass(resource.data.classId);
     }
 
     match /testResults/{id} {
       allow read: if ownsClass(resource.data.classId) || ownsStudent(resource.data.studentId);
-      allow create: if ownsStudent(request.resource.data.studentId) && studentIn(request.resource.data.classId);
-      allow update: if ownsStudent(resource.data.studentId);
+      allow create: if ownsStudent(request.resource.data.studentId)
+        && studentIn(request.resource.data.classId)
+        && request.resource.data.status == 'inProgress'
+        && request.resource.data.testId + '_' + request.resource.data.studentId == id
+        && request.resource.data.keys().hasOnly(['testId', 'studentId', 'classId', 'answers', 'answered', 'status', 'updatedAt']);
+      allow update: if ownsStudent(resource.data.studentId)
+        && resource.data.status == 'inProgress'
+        && request.resource.data.status == 'inProgress'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers', 'answered', 'updatedAt']);
       allow delete: if ownsClass(resource.data.classId);
+    }
+
+    match /testAnswerKeys/{id} {
+      allow create: if ownsClass(request.resource.data.classId)
+        && request.resource.data.testId == id
+        && request.resource.data.keys().hasOnly(['testId', 'classId', 'wordAnswers', 'createdAt']);
+      allow read, delete: if ownsClass(resource.data.classId);
     }
 
     match /pushSubscriptions/{uid}/tokens/{tokenId} {

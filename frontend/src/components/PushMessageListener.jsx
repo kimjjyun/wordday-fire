@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listenForForegroundMessages } from '../api/notifications';
 
 export default function PushMessageListener() {
   const navigate = useNavigate();
@@ -8,8 +7,9 @@ export default function PushMessageListener() {
 
   useEffect(() => {
     let unsubscribe = () => {};
-    const start = () => {
+    const start = async () => {
       unsubscribe();
+      const { listenForForegroundMessages } = await import('../api/notifications');
       listenForForegroundMessages(payload => {
         setMessage({
           title: payload.notification?.title || payload.data?.title || 'WordDay',

@@ -84,14 +84,39 @@ export async function bulkAddWords(id, words) {
 
 export async function importCSV(id, file) {
   const text = await file.text();
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
-  const headers = lines.shift().split(',').map(value => value.trim().toLowerCase());
-  const words = lines.map(line => {
-    const values = line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
-    return Object.fromEntries(headers.map((header, index) => [header, values[index] || '']));
-  });
+  const rows = parseCSV(text.replace(/^\uFEFF/, ''));
+  if (rows.length < 2) throw new Error('CSV에 단어 데이터가 없습니다.');
+  const headers = rows.shift().map(value => value.trim().toLowerCase());
+  if (!headers.includes('english') || !headers.includes('korean')) {
+    throw new Error('CSV 첫 줄에 english,korean 열이 필요합니다.');
+  }
+  const words = rows
+    .filter(values => values.some(value => value.trim()))
+    .map(values => Object.fromEntries(headers.map((header, index) => [header, values[index]?.trim() || ''])));
   const result = await bulkAddWords(id, words);
   return response({ imported: result.data.added, errors: [] });
+}
+
+function parseCSV(source) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let quoted = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (char === '"' && quoted && next === '"') { value += '"'; index += 1; continue; }
+    if (char === '"') { quoted = !quoted; continue; }
+    if (char === ',' && !quoted) { row.push(value); value = ''; continue; }
+    if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && next === '\n') index += 1;
+      row.push(value); rows.push(row); row = []; value = ''; continue;
+    }
+    value += char;
+  }
+  if (value || row.length) { row.push(value); rows.push(row); }
+  return rows;
 }
 
 export async function deleteWord(id, wordId) {

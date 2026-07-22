@@ -1,5 +1,6 @@
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDoc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { auth, db, firebaseApp } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { clean, docsWhere, now, response } from './helpers';
 import { bulkAddWords, deleteWordBook, loadWordBookWords } from './wordbooks';
@@ -13,6 +14,18 @@ const resultsForTest = async (classId, testId) =>
 export async function createTest(data) {
   const test = { classId: data.classId, wordBookId: data.wordBookId, roomCode: roomCode(), status: 'waiting', targetStudentIds: data.targetStudentIds || [], joinedStudentIds: [], teacherId: currentUser().id, createdAt: now() };
   const ref = await addDoc(collection(db, 'tests'), test);
+  try {
+    const words = await loadWordBookWords(data.wordBookId);
+    await setDoc(doc(db, 'testAnswerKeys', ref.id), {
+      testId: ref.id,
+      classId: data.classId,
+      wordAnswers: Object.fromEntries(words.map(word => [word.id, word.korean])),
+      createdAt: now(),
+    });
+  } catch (error) {
+    await deleteDoc(doc(db, 'tests', ref.id)).catch(() => {});
+    throw error;
+  }
   return response({ id: ref.id, ...test });
 }
 
@@ -56,6 +69,18 @@ async function loadLiveTest(id) {
   if (!snap.exists()) throw new Error('시험을 찾을 수 없습니다.');
   const test = { id: snap.id, ...snap.data() };
   const words = await loadWordBookWords(test.wordBookId);
+  if (currentUser()?.role === 'teacher') {
+    const keyRef = doc(db, 'testAnswerKeys', id);
+    const keySnap = await getDoc(keyRef);
+    if (!keySnap.exists()) {
+      await setDoc(keyRef, {
+        testId: id,
+        classId: test.classId,
+        wordAnswers: Object.fromEntries(words.map(word => [word.id, word.korean])),
+        createdAt: now(),
+      });
+    }
+  }
   const results = currentUser()?.role === 'teacher' ? await resultsForTest(test.classId, test.id) : [];
   let myResult = null;
   if (currentUser()?.role === 'student') {
@@ -99,14 +124,9 @@ export async function saveTestProgress(id, { answers }) {
 }
 
 export async function submitAnswers(id, { answers }) {
-  const student = currentUser();
-  const testSnap = await getDoc(doc(db, 'tests', id));
-  const test = testSnap.data();
-  const words = await loadWordBookWords(test.wordBookId);
-  const score = words.filter(word => clean(answers[word.id]) === clean(word.korean)).length;
-  const answered = Object.values(answers).filter(value => clean(value)).length;
-  await setDoc(doc(db, 'testResults', `${id}_${student.id}`), { testId: id, studentId: student.id, classId: student.classId, answers, score, answered, total: words.length, status: 'submitted', submittedAt: now() });
-  return response({ score, total: words.length });
+  const submit = httpsCallable(getFunctions(firebaseApp), 'submitTestAnswers');
+  const result = await submit({ testId: id, answers });
+  return response(result.data);
 }
 
 export async function getResults(id) {
@@ -176,6 +196,10 @@ async function deleteTestsByStatus(classId, ids, allowedStatuses) {
       .map(result => deleteDoc(doc(db, 'testResults', result.id))),
   );
   await Promise.all(tests.map(test => deleteDoc(doc(db, 'tests', test.id))));
+  await Promise.all(tests.map(async test => {
+    const keyRef = doc(db, 'testAnswerKeys', test.id);
+    if ((await getDoc(keyRef)).exists()) await deleteDoc(keyRef);
+  }));
 
   // DAY 시험을 만들 때 생성된 비활성 임시 단어장은 더 이상 참조되지 않으면 함께 정리한다.
   for (const wordBookId of new Set(tests.map(test => test.wordBookId))) {

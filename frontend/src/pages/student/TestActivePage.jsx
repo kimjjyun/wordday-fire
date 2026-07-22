@@ -131,7 +131,12 @@ export default function TestActivePage() {
     setSubmitError('');
     await pendingSaveRef.current;
     submitAnswers(testId, { answers: ans })
-      .then(() => { setSubmitted(true); setSaveError(''); })
+      .then(({ data }) => {
+        setScore(data.score);
+        sessionStorage.setItem('my_score', JSON.stringify({ score: data.score, total: data.total, answered: data.answered }));
+        setSubmitted(true);
+        setSaveError('');
+      })
       .catch(() => {
         submittedRef.current = false;
         setSubmitError('답안을 제출하지 못했습니다. 아래 버튼으로 다시 시도해주세요.');

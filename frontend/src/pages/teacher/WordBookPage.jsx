@@ -30,6 +30,7 @@ export default function WordBookPage() {
 
   const [wb,      setWb]      = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState('');
   const [tab,     setTab]     = useState('direct');
 
   const [rows, setRows] = useState([{ english: '', korean: '', example: '' }]);
@@ -66,7 +67,14 @@ export default function WordBookPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const load = () => getWordBook(id).then(r => setWb(r.data)).finally(() => setLoading(false));
+  const load = () => {
+    setPageError('');
+    setLoading(true);
+    return getWordBook(id)
+      .then(r => setWb(r.data))
+      .catch(() => setPageError('단어장을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.'))
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, [id]);
 
   const updateRow = (i, f, v) => setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
@@ -139,7 +147,7 @@ export default function WordBookPage() {
     navigate(`/teacher/test/${res.data.id}/run`);
   };
 
-  if (loading || !wb) return (
+  if (loading) return (
     <Layout title="WORDDAY" back>
       <div className="flex items-center justify-center py-20">
         <div className="flex gap-1.5">
@@ -147,6 +155,15 @@ export default function WordBookPage() {
             <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-200 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>
+      </div>
+    </Layout>
+  );
+
+  if (pageError || !wb) return (
+    <Layout title="WORDDAY" back>
+      <div className="py-20 text-center">
+        <p className="text-[15px] font-bold">{pageError || '단어장을 찾을 수 없습니다.'}</p>
+        <button onClick={load} className="mt-5 border border-gray-200 rounded-full px-5 py-3 text-[13px] font-bold">다시 시도</button>
       </div>
     </Layout>
   );
